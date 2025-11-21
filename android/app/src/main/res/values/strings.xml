@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KharchaPal</string>
+    <string name="title_activity_main">KharchaPal</string>
+    <string name="package_name">com.kharchapal.app</string>
+    <string name="custom_url_scheme">com.kharchapal.app</string>
+</resources>
