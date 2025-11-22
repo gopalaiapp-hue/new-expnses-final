@@ -5,12 +5,12 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { ArrowUpCircle, Banknote, Smartphone, CreditCard, Building2, Info } from "lucide-react";
+import { ArrowUpCircle, Info } from "lucide-react";
 import { Card } from "../ui/card";
 import { useApp } from "../../lib/store";
-import { Goal, GoalTransfer, PaymentMethod } from "../../types";
-import { generateId, formatCurrency } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { Goal, GoalTransfer, PaymentMethod, Expense, PaymentLine } from "../../types";
+import { generateId, formatCurrency, formatDate } from "../../lib/utils";
+import { toast } from "sonner";
 
 interface AddGoalTransferDialogProps {
   goal: Goal;
@@ -19,12 +19,20 @@ interface AddGoalTransferDialogProps {
 }
 
 export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDialogProps) {
-  const { currentUser, currentFamily, accounts, addGoalTransfer, updateGoal } = useApp();
+  const { currentUser, currentFamily, accounts, addGoalTransfer, updateGoal, addExpense } = useApp();
   const [amount, setAmount] = useState("");
   const [fromAccountId, setFromAccountId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleClose = () => {
+    setAmount("");
+    setFromAccountId("");
+    setPaymentMethod("cash");
+    setNotes("");
+    onClose();
+  };
 
   const handleSubmit = async () => {
     if (!currentUser || !currentFamily) return;
@@ -43,6 +51,7 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
 
     setIsSubmitting(true);
     try {
+      // Create the transfer record
       const transfer: GoalTransfer = {
         id: generateId(),
         goal_id: goal.id,
@@ -59,6 +68,40 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
 
       await addGoalTransfer(transfer);
 
+      // Create a corresponding expense record
+      // Only if a specific account is selected or it's a cash/upi payment that implies spending
+      // If it's just a transfer within accounts (e.g. Bank to Goal), it might be a transfer, not an expense.
+      // But the user requirement says "Goals adding money and reflection in expenses".
+      // So we will create an expense.
+
+      const paymentLine: PaymentLine = {
+        id: generateId(),
+        method: paymentMethod,
+        amount: transferAmount,
+        payer_user_id: currentUser.id,
+        account_id: fromAccountId || "cash", // Default to cash if no account selected, or maybe we should enforce account selection?
+        // If fromAccountId is empty, it might mean "Cash" or external source.
+      };
+
+      const newExpense: Expense = {
+        id: generateId(),
+        family_id: currentUser.family_id,
+        created_by: currentUser.id,
+        total_amount: transferAmount,
+        currency: "INR",
+        category: "savings",
+        date: formatDate(new Date()),
+        notes: `Contribution to goal: ${goal.goal_name}`,
+        payment_lines: [paymentLine],
+        attachments: [],
+        is_shared: true,
+        sync_status: "synced",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      await addExpense(newExpense);
+
       // Update goal current amount
       const updatedGoal: Goal = {
         ...goal,
@@ -70,6 +113,7 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       if (updatedGoal.current_amount >= updatedGoal.target_amount) {
         updatedGoal.is_active = false;
         updatedGoal.completed_at = new Date().toISOString();
+        toast.success("Goal reached! 🎉");
       }
 
       await updateGoal(updatedGoal);
@@ -82,14 +126,6 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleClose = () => {
-    setAmount("");
-    setFromAccountId("");
-    setPaymentMethod("cash");
-    setNotes("");
-    onClose();
   };
 
   const remaining = goal.target_amount - goal.current_amount;
@@ -208,11 +244,10 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`p-3 rounded-xl border-2 transition-all ${
-                    paymentMethod === method
+                  className={`p-3 rounded-xl border-2 transition-all ${paymentMethod === method
                       ? `bg-gradient-to-br ${info.color} border-primary shadow-md scale-105`
                       : `bg-white dark:bg-slate-950 border-border hover:border-primary/50`
-                  }`}
+                    }`}
                 >
                   <div className="text-3xl mb-2">{info.icon}</div>
                   <div className="text-xs font-medium text-center leading-tight">
@@ -273,8 +308,8 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
             <Button variant="outline" onClick={handleClose} className="flex-1 h-12">
               Cancel
             </Button>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={isSubmitting || !amount || parseFloat(amount) <= 0}
               className="flex-1 h-12"
             >

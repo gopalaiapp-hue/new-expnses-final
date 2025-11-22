@@ -15,6 +15,7 @@ import { ReportsScreen } from "./analytics/ReportsScreen";
 import { MoreSection } from "./MoreSection";
 import { BottomNav } from "./BottomNav";
 import { useApp } from "../lib/store";
+import { useLanguage } from "../lib/language";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import logo from "../logo/kharchapal.png";
@@ -24,6 +25,7 @@ declare module "*.png";
 
 export function MainDashboard() {
   const { currentUser, currentFamily } = useApp();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("home");
   const [transactionsSubTab, setTransactionsSubTab] = useState("expenses");
   const [showAddTransaction, setShowAddTransaction] = useState(false);
@@ -53,9 +55,9 @@ export function MainDashboard() {
   const handleApplyFilters = (filters: FilterState) => {
     setActiveFilters(filters);
     setHasFiltersApplied(
-      filters.searchQuery !== "" || 
-      filters.timeRange !== "all" || 
-      filters.category !== "All Categories" || 
+      filters.searchQuery !== "" ||
+      filters.timeRange !== "all" ||
+      filters.category !== "All Categories" ||
       filters.mode !== "All Modes"
     );
     setShowFilter(false);
@@ -116,7 +118,7 @@ export function MainDashboard() {
                   </div>
                   <div>
                     <h2 className="flex items-center gap-2 text-xl font-semibold">
-                      Namaste, {currentUser?.name}! 🙏
+                      {t('welcome')}, {currentUser?.name}! 🙏
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
@@ -139,8 +141,8 @@ export function MainDashboard() {
               >
                 <Zap className="h-6 w-6 text-green-600 dark:text-green-400" />
                 <div className="text-center">
-                  <p className="font-semibold text-green-900 dark:text-green-100">Quick Add</p>
-                  <p className="text-xs text-green-700 dark:text-green-300">Type: 200 Uber</p>
+                  <p className="font-semibold text-green-900 dark:text-green-100">{t('quick_add')}</p>
+                  <p className="text-xs text-green-700 dark:text-green-300">{t('quick_add_desc')}</p>
                 </div>
               </button>
               <button
@@ -149,8 +151,8 @@ export function MainDashboard() {
               >
                 <Upload className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 <div className="text-center">
-                  <p className="font-semibold text-blue-900 dark:text-blue-100">Import UPI</p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">JSON/CSV/Paste</p>
+                  <p className="font-semibold text-blue-900 dark:text-blue-100">{t('import_upi')}</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">{t('import_upi_desc')}</p>
                 </div>
               </button>
             </div>
@@ -158,23 +160,23 @@ export function MainDashboard() {
             <DashboardStats />
 
             <TopSpending />
-            
+
             <div>
-              <h3 className="mb-3">Recent Transactions</h3>
+              <h3 className="mb-3">{t('recent_transactions')}</h3>
               <Tabs value={transactionsSubTab} onValueChange={setTransactionsSubTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 bg-surface-variant/50 p-1 rounded-xl">
                   <TabsTrigger value="expenses" className="rounded-lg data-[state=active]:bg-primary-container data-[state=active]:text-on-primary-container">
-                    Expenses
+                    {t('expenses')}
                   </TabsTrigger>
                   <TabsTrigger value="income" className="rounded-lg data-[state=active]:bg-primary-container data-[state=active]:text-on-primary-container">
-                    Income
+                    {t('income')}
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="expenses" className="mt-4">
                   <ExpenseList />
                 </TabsContent>
-                
+
                 <TabsContent value="income" className="mt-4">
                   <IncomeList />
                 </TabsContent>
@@ -187,7 +189,7 @@ export function MainDashboard() {
         {activeTab === "transactions" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2>All Transactions</h2>
+              <h2>{t('transactions')}</h2>
               <div className="flex items-center gap-2">
                 {hasFiltersApplied && (
                   <Button
@@ -219,17 +221,17 @@ export function MainDashboard() {
             <Tabs value={transactionsSubTab} onValueChange={setTransactionsSubTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-surface-variant/50 p-1 rounded-xl">
                 <TabsTrigger value="expenses" className="rounded-lg data-[state=active]:bg-primary-container data-[state=active]:text-on-primary-container">
-                  Expenses
+                  {t('expenses')}
                 </TabsTrigger>
                 <TabsTrigger value="income" className="rounded-lg data-[state=active]:bg-primary-container data-[state=active]:text-on-primary-container">
-                  Income
+                  {t('income')}
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="expenses" className="mt-4">
                 <ExpenseList filters={activeFilters} />
               </TabsContent>
-              
+
               <TabsContent value="income" className="mt-4">
                 <IncomeList filters={activeFilters} />
               </TabsContent>
@@ -242,7 +244,7 @@ export function MainDashboard() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2>Savings Goals</h2>
+                <h2>{t('savings_goals')}</h2>
                 <p className="text-sm text-muted-foreground mt-1">Track your financial targets</p>
               </div>
               <Button size="sm" onClick={() => setShowAddGoal(true)} className="gap-2">
@@ -257,7 +259,7 @@ export function MainDashboard() {
         {/* More View */}
         {activeTab === "more" && (
           <div className="space-y-4">
-            <h2>More Options</h2>
+            <h2>{t('more_options')}</h2>
             <MoreSection onShowReports={() => setShowReportsScreen(true)} />
           </div>
         )}
@@ -290,9 +292,9 @@ export function MainDashboard() {
       <QuickAddDialog open={showQuickAdd} onClose={() => setShowQuickAdd(false)} />
       <ImportUPIDialog open={showImportUPI} onClose={() => setShowImportUPI(false)} />
       <AddGoalDialog open={showAddGoal} onClose={() => setShowAddGoal(false)} />
-      <TransactionFilterDialog 
-        open={showFilter} 
-        onClose={() => setShowFilter(false)} 
+      <TransactionFilterDialog
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
         onApplyFilters={handleApplyFilters}
       />
     </div>

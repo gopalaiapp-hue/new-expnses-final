@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { 
-  Settings, 
-  BarChart3, 
-  HandCoins, 
-  Users, 
-  BookOpen, 
+import {
+  Settings,
+  BarChart3,
+  HandCoins,
+  Users,
+  BookOpen,
   LogOut,
   ChevronRight,
   Copy,
@@ -16,9 +16,11 @@ import {
   Target,
   Plus,
   CircleDollarSign,
-  Wallet
+  Wallet,
+  Languages
 } from "lucide-react";
 import { useApp } from "../lib/store";
+import { useLanguage, Language } from "../lib/language";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { FamilySettings } from "./settings/FamilySettings";
@@ -34,7 +36,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { GoalList } from "./goal/GoalList";
 import { AddGoalDialog } from "./goal/AddGoalDialog";
 import { AddDebtDialog } from "./debt/AddDebtDialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface MoreSectionProps {
   onViewChange?: (view: string) => void;
@@ -43,6 +45,7 @@ interface MoreSectionProps {
 
 export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   const { currentUser, currentFamily, logout, debts, goals, budgets, accounts, expenses, income, goalTransfers, users } = useApp();
+  const { language, setLanguage, t } = useLanguage();
   const [showDialog, setShowDialog] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
@@ -129,7 +132,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   const menuItems = [
     {
       id: "reports",
-      title: "Reports & Charts",
+      title: t('reports'),
       description: "View spending insights",
       icon: BarChart3,
       iconColor: "text-chart-1",
@@ -137,7 +140,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "about",
-      title: "About App",
+      title: t('about'),
       description: "Developer info & support",
       icon: Users,
       iconColor: "text-tertiary",
@@ -145,7 +148,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "budgets",
-      title: "Monthly Budgets",
+      title: t('budgets'),
       description: "Set spending limits",
       icon: CircleDollarSign,
       iconColor: "text-purple-600",
@@ -154,7 +157,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "accounts",
-      title: "Bank Accounts",
+      title: t('accounts'),
       description: "Manage payment accounts",
       icon: Wallet,
       iconColor: "text-green-600",
@@ -163,7 +166,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "ious",
-      title: "Debts & Loans",
+      title: t('debts'),
       description: "Money lent and borrowed",
       icon: HandCoins,
       iconColor: "text-orange-600",
@@ -172,7 +175,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "family",
-      title: "Family Members",
+      title: t('family'),
       description: "Invite & manage members",
       icon: Users,
       iconColor: "text-primary",
@@ -181,7 +184,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "guide",
-      title: "Quick Guide",
+      title: t('guide'),
       description: "Learn how to use KharchaPal",
       icon: BookOpen,
       iconColor: "text-tertiary",
@@ -189,11 +192,20 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     },
     {
       id: "settings",
-      title: "Settings",
+      title: t('settings'),
       description: "Family preferences",
       icon: Settings,
       iconColor: "text-on-surface-variant",
       onClick: () => setShowDialog("settings"),
+    },
+    {
+      id: "language",
+      title: t('language'),
+      description: "Change app language",
+      icon: Languages,
+      iconColor: "text-blue-600",
+      badge: language.toUpperCase(),
+      onClick: () => setShowDialog("language"),
     },
   ];
 
@@ -225,7 +237,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
       <div className="space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          
+
           // Skip admin-only items for non-admins
           if (item.adminOnly && currentUser?.role !== "admin") {
             return null;
@@ -466,19 +478,19 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
               <p className="text-sm text-muted-foreground mt-1">
                 I’m Nitesh Jha, a UI/UX Designer who uses AI extensively to plan, design, and develop mobile applications with high speed and clarity. I follow a structured product development approach where every idea begins with a PRD (Product Requirement Document). Using AI tools, I convert the PRD into task lists, flows, wireframes, and development-ready assets, ensuring that the entire process—from concept to a fully functional mobile app—becomes smooth, fast, and extremely efficient.
 
-My workflow is simple and scalable:
+                My workflow is simple and scalable:
 
-Create the PRD – Define the problem, goals, features, user journeys, and success metrics.
+                Create the PRD – Define the problem, goals, features, user journeys, and success metrics.
 
-Break It Into Tasks Using AI – Convert the PRD into atomic tasks for design, development, and testing.
+                Break It Into Tasks Using AI – Convert the PRD into atomic tasks for design, development, and testing.
 
-Generate User Flows & Wireframes – Use AI models to instantly create low-fidelity and high-fidelity screens.
+                Generate User Flows & Wireframes – Use AI models to instantly create low-fidelity and high-fidelity screens.
 
-Build the App With AI Agents – Transform the design into a working PWA, Android APK, or iOS app using another AI tool.
+                Build the App With AI Agents – Transform the design into a working PWA, Android APK, or iOS app using another AI tool.
 
-Validate & Iterate – Run automated validation flows and refine based on feedback.
+                Validate & Iterate – Run automated validation flows and refine based on feedback.
 
-I combine design thinking with AI automation to build apps faster than traditional methods—while still maintaining clarity, structure, and user experience.
+                I combine design thinking with AI automation to build apps faster than traditional methods—while still maintaining clarity, structure, and user experience.
               </p>
             </div>
 
@@ -541,6 +553,38 @@ I combine design thinking with AI automation to build apps faster than tradition
 
       {/* Add Debt Dialog */}
       <AddDebtDialog open={showAddDebt} onClose={() => setShowAddDebt(false)} />
+
+      {/* Language Dialog */}
+      <Dialog open={showDialog === "language"} onOpenChange={() => setShowDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('select_language')}</DialogTitle>
+            <DialogDescription>Choose your preferred language</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {[
+              { code: 'en', name: 'English', native: 'English' },
+              { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+              { code: 'mr', name: 'Marathi', native: 'मराठी' },
+              { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
+              { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી' },
+            ].map((lang) => (
+              <Button
+                key={lang.code}
+                variant={language === lang.code ? "default" : "outline"}
+                className="justify-between"
+                onClick={() => {
+                  setLanguage(lang.code as Language);
+                  setShowDialog(null);
+                }}
+              >
+                <span>{lang.name}</span>
+                <span className="text-xs opacity-70">{lang.native}</span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

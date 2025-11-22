@@ -9,6 +9,7 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
 import { Device } from "@capacitor/device";
 import { EdgeToEdge } from "@capawesome/capacitor-android-edge-to-edge-support";
+import { LanguageProvider } from "./lib/language";
 
 type OnboardingView = "welcome" | "create" | "join";
 
@@ -112,12 +113,12 @@ function AppContent() {
       )}
 
       {onboardingView === "create" && (
-        <CreateFamily onComplete={() => {}} onBack={() => setOnboardingView("welcome")} />
+        <CreateFamily onComplete={() => { }} onBack={() => setOnboardingView("welcome")} />
       )}
 
       {onboardingView === "join" && (
         <JoinFamily
-          onComplete={() => {}}
+          onComplete={() => { }}
           onBack={() => setOnboardingView("welcome")}
         />
       )}
@@ -128,8 +129,10 @@ function AppContent() {
 export default function App() {
   return (
     <AppProvider>
-      <AppContent />
-      <Toaster position="top-center" />
+      <LanguageProvider>
+        <AppContent />
+        <Toaster position="top-center" />
+      </LanguageProvider>
     </AppProvider>
   );
 }
