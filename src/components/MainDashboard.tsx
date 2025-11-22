@@ -3,6 +3,8 @@ import { Button } from "./ui/button";
 import { Plus, TrendingDown, TrendingUp, Zap, Upload, Filter, X } from "lucide-react";
 import { DashboardStats } from "./dashboard/DashboardStats";
 import { TopSpending } from "./dashboard/TopSpending";
+import { BudgetSummaryWidget } from "./dashboard/BudgetSummaryWidget";
+import { DebtSummaryWidget } from "./dashboard/DebtSummaryWidget";
 import { ExpenseList } from "./expense/ExpenseList";
 import { IncomeList } from "./income/IncomeList";
 import { GoalList } from "./goal/GoalList";
@@ -11,6 +13,7 @@ import { AddTransactionModal } from "./transaction/AddTransactionModal";
 import { QuickAddDialog } from "./transaction/QuickAddDialog";
 import { ImportUPIDialog } from "./transaction/ImportUPIDialog";
 import { TransactionFilterDialog, type FilterState } from "./transaction/TransactionFilterDialog";
+import { SmartInsights } from "./dashboard/SmartInsights";
 import { ReportsScreen } from "./analytics/ReportsScreen";
 import { MoreSection } from "./MoreSection";
 import { BottomNav } from "./BottomNav";
@@ -132,6 +135,8 @@ export function MainDashboard() {
             </div>
 
 
+            {/* Smart Insights */}
+            <SmartInsights />
 
             {/* Quick Add & Import UPI */}
             <div className="grid grid-cols-2 gap-3">
@@ -156,6 +161,9 @@ export function MainDashboard() {
                 </div>
               </button>
             </div>
+
+            <BudgetSummaryWidget />
+            <DebtSummaryWidget />
 
             <DashboardStats />
 

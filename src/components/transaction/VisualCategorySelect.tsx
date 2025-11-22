@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Plus } from "lucide-react";
-import { TransactionType } from "../../types";
+import { TransactionType, CustomCategory } from "../../types";
 import { useApp } from "../../lib/store";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 interface CategoryItem {
   value: string;
@@ -47,16 +48,25 @@ interface VisualCategorySelectProps {
 }
 
 export function VisualCategorySelect({ type, value, onChange }: VisualCategorySelectProps) {
-  const { currentFamily } = useApp();
+  const { currentFamily, currentUser, customCategories, addCustomCategory } = useApp();
   const [showAddCustom, setShowAddCustom] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState("");
-  const [customCategories, setCustomCategories] = useState<CategoryItem[]>([]);
 
   const isExpense = type === "expense";
   const defaultCategories = isExpense ? EXPENSE_CATEGORIES : INCOME_SOURCES;
-  const allCategories = [...defaultCategories, ...customCategories];
 
-  const handleAddCustomCategory = () => {
+  // Filter custom categories by type and map to CategoryItem
+  const mappedCustomCategories: CategoryItem[] = customCategories
+    .filter(c => c.type === type)
+    .map(c => ({
+      value: c.name,
+      label: c.name,
+      icon: c.icon || "📌"
+    }));
+
+  const allCategories = [...defaultCategories, ...mappedCustomCategories];
+
+  const handleAddCustomCategory = async () => {
     const trimmed = customCategoryName.trim();
     if (!trimmed) {
       toast.error("Please enter a category name");
@@ -68,33 +78,29 @@ export function VisualCategorySelect({ type, value, onChange }: VisualCategorySe
       return;
     }
 
-    const newCategory: CategoryItem = {
-      value: trimmed,
-      label: trimmed,
-      icon: "📌"
+    if (!currentFamily || !currentUser) return;
+
+    const newCategory: CustomCategory = {
+      id: uuidv4(),
+      family_id: currentFamily.id,
+      name: trimmed,
+      type: type,
+      icon: "📌",
+      created_by: currentUser.id,
+      created_at: new Date().toISOString(),
     };
 
-    // Save to localStorage for persistence
-    const storageKey = `customCategories_${currentFamily?.id}_${type}`;
-    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const updated = [...existing, newCategory];
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-
-    setCustomCategories(updated);
-    onChange(trimmed);
-    setCustomCategoryName("");
-    setShowAddCustom(false);
-    toast.success(`Custom ${isExpense ? "category" : "source"} added`);
-  };
-
-  // Load custom categories on mount
-  useEffect(() => {
-    if (currentFamily) {
-      const storageKey = `customCategories_${currentFamily.id}_${type}`;
-      const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      setCustomCategories(saved);
+    try {
+      await addCustomCategory(newCategory);
+      onChange(trimmed);
+      setCustomCategoryName("");
+      setShowAddCustom(false);
+      toast.success(`Custom ${isExpense ? "category" : "source"} added`);
+    } catch (error) {
+      console.error("Failed to add custom category:", error);
+      toast.error("Failed to add custom category");
     }
-  }, [currentFamily, type]);
+  };
 
   return (
     <>
@@ -106,11 +112,10 @@ export function VisualCategorySelect({ type, value, onChange }: VisualCategorySe
               key={cat.value}
               type="button"
               onClick={() => onChange(cat.value)}
-              className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${
-                value === cat.value
+              className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${value === cat.value
                   ? "border-primary bg-primary/10"
                   : "border-border bg-background hover:bg-accent"
-              }`}
+                }`}
             >
               <span className="text-2xl">{cat.icon}</span>
               <span className="text-xs text-center leading-tight line-clamp-2">
@@ -118,7 +123,7 @@ export function VisualCategorySelect({ type, value, onChange }: VisualCategorySe
               </span>
             </button>
           ))}
-          
+
           {/* Add Custom Button */}
           <button
             type="button"

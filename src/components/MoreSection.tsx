@@ -17,13 +17,17 @@ import {
   Plus,
   CircleDollarSign,
   Wallet,
-  Languages
+  Languages,
+  Tag,
+  RefreshCw
 } from "lucide-react";
 import { useApp } from "../lib/store";
 import { useLanguage, Language } from "../lib/language";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { FamilySettings } from "./settings/FamilySettings";
+import { CategorySettings } from "./settings/CategorySettings";
+import { RecurringTransactionsList } from "./transaction/RecurringTransactionsList";
 import { QuickGuide } from "./QuickGuide";
 import { DashboardCharts } from "./dashboard/DashboardCharts";
 import { DebtList } from "./debt/DebtList";
@@ -197,6 +201,22 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
       icon: Settings,
       iconColor: "text-on-surface-variant",
       onClick: () => setShowDialog("settings"),
+    },
+    {
+      id: "categories",
+      title: "Categories",
+      description: "Manage custom categories",
+      icon: Tag,
+      iconColor: "text-pink-600",
+      onClick: () => setShowDialog("categories"),
+    },
+    {
+      id: "subscriptions",
+      title: "Subscriptions",
+      description: "Manage recurring payments",
+      icon: RefreshCw,
+      iconColor: "text-purple-600",
+      onClick: () => setShowDialog("subscriptions"),
     },
     {
       id: "language",
@@ -539,6 +559,26 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
             </DialogDescription>
           </DialogHeader>
           <FamilySettings />
+        </DialogContent>
+      </Dialog>
+
+      {/* Categories Dialog */}
+      <Dialog open={showDialog === "categories"} onOpenChange={() => setShowDialog(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+            <DialogDescription>
+              Add or remove custom categories
+            </DialogDescription>
+          </DialogHeader>
+          <CategorySettings />
+        </DialogContent>
+      </Dialog>
+
+      {/* Subscriptions Dialog */}
+      <Dialog open={showDialog === "subscriptions"} onOpenChange={() => setShowDialog(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <RecurringTransactionsList />
         </DialogContent>
       </Dialog>
 

@@ -1,6 +1,6 @@
 // Global state management using React Context
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { User, Family, Expense, Income, DebtRecord, Budget, Account, Goal, GoalTransfer } from "../types";
+import { User, Family, Expense, Income, DebtRecord, Budget, Account, Goal, GoalTransfer, CustomCategory, RecurringTransaction } from "../types";
 import { db } from "./db";
 
 interface AppState {
@@ -14,6 +14,8 @@ interface AppState {
   accounts: Account[];
   goals: Goal[];
   goalTransfers: GoalTransfer[];
+  customCategories: CustomCategory[];
+  recurringTransactions: RecurringTransaction[];
   isLoading: boolean;
 }
 
@@ -35,6 +37,11 @@ interface AppContextType extends AppState {
   updateGoal: (goal: Goal) => Promise<void>;
   addGoalTransfer: (transfer: GoalTransfer) => Promise<void>;
   addUser: (user: User) => Promise<void>;
+  addCustomCategory: (category: CustomCategory) => Promise<void>;
+  deleteCustomCategory: (id: string) => Promise<void>;
+  addRecurringTransaction: (transaction: RecurringTransaction) => Promise<void>;
+  updateRecurringTransaction: (transaction: RecurringTransaction) => Promise<void>;
+  deleteRecurringTransaction: (id: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -52,6 +59,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accounts: [],
     goals: [],
     goalTransfers: [],
+    customCategories: [],
+    recurringTransactions: [],
     isLoading: true,
   });
 
@@ -62,16 +71,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log("Initializing KharchaPal...");
         await db.init();
         console.log("Database initialized successfully");
-        
+
         // Try to restore session from localStorage
         const savedUserId = localStorage.getItem("currentUserId");
         const savedFamilyId = localStorage.getItem("currentFamilyId");
-        
+
         if (savedUserId && savedFamilyId) {
           console.log("Attempting to restore session...");
           const user = await db.getUser(savedUserId);
           const family = await db.getFamily(savedFamilyId);
-          
+
           if (user && family) {
             console.log("Session restored successfully");
             setState(prev => ({
@@ -111,7 +120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadFamilyDataInternal = async (familyId: string) => {
     try {
-      const [users, expenses, income, debts, budgets, accounts, goals, goalTransfers] = await Promise.all([
+      const [users, expenses, income, debts, budgets, accounts, goals, goalTransfers, customCategories, recurringTransactions] = await Promise.all([
         db.getAllUsers(),
         db.getExpensesByFamily(familyId),
         db.getIncomeByFamily(familyId),
@@ -120,6 +129,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         db.getAccountsByFamily(familyId),
         db.getGoalsByFamily?.(familyId) ?? Promise.resolve([]),
         db.getGoalTransfersByFamily?.(familyId) ?? Promise.resolve([]),
+        db.getCustomCategoriesByFamily(familyId),
+        db.getRecurringTransactionsByFamily(familyId),
       ]);
 
       setState(prev => ({
@@ -132,6 +143,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accounts,
         goals: goals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
         goalTransfers,
+        customCategories,
+        recurringTransactions,
       }));
     } catch (error) {
       console.error("Failed to load family data:", error);
@@ -166,12 +179,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await db.addExpense(expense);
 
     // Update account balances for payment lines with account_id
-    const updatedAccounts = [...prev.accounts];
+    const updatedAccounts = [...state.accounts];
     for (const paymentLine of expense.payment_lines) {
       if (paymentLine.account_id) {
-        const accountIndex = prev.accounts.findIndex(a => a.id === paymentLine.account_id);
+        const accountIndex = state.accounts.findIndex(a => a.id === paymentLine.account_id);
         if (accountIndex !== -1) {
-          const account = prev.accounts[accountIndex];
+          const account = state.accounts[accountIndex];
           updatedAccounts[accountIndex] = {
             ...account,
             current_balance: account.current_balance - paymentLine.amount,
@@ -331,6 +344,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addCustomCategory = async (category: CustomCategory) => {
+    await db.addCustomCategory(category);
+    setState(prev => ({
+      ...prev,
+      customCategories: [...prev.customCategories, category],
+    }));
+  };
+
+  const deleteCustomCategory = async (id: string) => {
+    await db.deleteCustomCategory(id);
+    setState(prev => ({
+      ...prev,
+      customCategories: prev.customCategories.filter(c => c.id !== id),
+    }));
+  };
+
+  const addRecurringTransaction = async (transaction: RecurringTransaction) => {
+    await db.addRecurringTransaction(transaction);
+    setState(prev => ({
+      ...prev,
+      recurringTransactions: [...prev.recurringTransactions, transaction],
+    }));
+  };
+
+  const updateRecurringTransaction = async (transaction: RecurringTransaction) => {
+    await db.updateRecurringTransaction(transaction);
+    setState(prev => ({
+      ...prev,
+      recurringTransactions: prev.recurringTransactions.map(t => t.id === transaction.id ? transaction : t),
+    }));
+  };
+
+  const deleteRecurringTransaction = async (id: string) => {
+    await db.deleteRecurringTransaction(id);
+    setState(prev => ({
+      ...prev,
+      recurringTransactions: prev.recurringTransactions.filter(t => t.id !== id),
+    }));
+  };
+
   const logout = () => {
     localStorage.removeItem("currentUserId");
     localStorage.removeItem("currentFamilyId");
@@ -345,6 +398,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts: [],
       goals: [],
       goalTransfers: [],
+      customCategories: [],
+      recurringTransactions: [],
       isLoading: false,
     });
   };
@@ -370,6 +425,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateGoal,
         addGoalTransfer,
         addUser,
+        addCustomCategory,
+        deleteCustomCategory,
+        addRecurringTransaction,
+        updateRecurringTransaction,
+        deleteRecurringTransaction,
         logout,
       }}
     >

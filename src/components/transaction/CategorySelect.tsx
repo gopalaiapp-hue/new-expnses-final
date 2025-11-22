@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Plus, Tag } from "lucide-react";
-import { EXPENSE_CATEGORIES, INCOME_SOURCES, TransactionType } from "../../types";
+import { EXPENSE_CATEGORIES, INCOME_SOURCES, TransactionType, CustomCategory } from "../../types";
 import { useApp } from "../../lib/store";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 interface CategorySelectProps {
   type: TransactionType;
@@ -16,16 +17,19 @@ interface CategorySelectProps {
 }
 
 export function CategorySelect({ type, value, onChange }: CategorySelectProps) {
-  const { currentFamily } = useApp();
+  const { currentFamily, currentUser, customCategories, addCustomCategory } = useApp();
   const [showAddCustom, setShowAddCustom] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState("");
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
 
   const isExpense = type === "expense";
   const defaultCategories = isExpense ? EXPENSE_CATEGORIES : INCOME_SOURCES;
-  const allCategories = [...defaultCategories, ...customCategories];
 
-  const handleAddCustomCategory = () => {
+  const filteredCustomCategories = customCategories
+    .filter(c => c.type === type);
+
+  const allCategories = [...defaultCategories, ...filteredCustomCategories.map(c => c.name)];
+
+  const handleAddCustomCategory = async () => {
     const trimmed = customCategoryName.trim();
     if (!trimmed) {
       toast.error("Please enter a category name");
@@ -37,27 +41,29 @@ export function CategorySelect({ type, value, onChange }: CategorySelectProps) {
       return;
     }
 
-    // Save to localStorage for persistence (in a real app, this would be in IndexedDB)
-    const storageKey = `customCategories_${currentFamily?.id}_${type}`;
-    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const updated = [...existing, trimmed];
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    if (!currentFamily || !currentUser) return;
 
-    setCustomCategories(updated);
-    onChange(trimmed);
-    setCustomCategoryName("");
-    setShowAddCustom(false);
-    toast.success(`Custom ${isExpense ? "category" : "source"} added`);
-  };
+    const newCategory: CustomCategory = {
+      id: uuidv4(),
+      family_id: currentFamily.id,
+      name: trimmed,
+      type: type,
+      icon: "🏷️", // Default icon for dropdown
+      created_by: currentUser.id,
+      created_at: new Date().toISOString(),
+    };
 
-  // Load custom categories on mount
-  useEffect(() => {
-    if (currentFamily) {
-      const storageKey = `customCategories_${currentFamily.id}_${type}`;
-      const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      setCustomCategories(saved);
+    try {
+      await addCustomCategory(newCategory);
+      onChange(trimmed);
+      setCustomCategoryName("");
+      setShowAddCustom(false);
+      toast.success(`Custom ${isExpense ? "category" : "source"} added`);
+    } catch (error) {
+      console.error("Failed to add custom category:", error);
+      toast.error("Failed to add custom category");
     }
-  }, [currentFamily, type]);
+  };
 
   return (
     <>
@@ -74,16 +80,16 @@ export function CategorySelect({ type, value, onChange }: CategorySelectProps) {
           ))}
 
           {/* Custom categories */}
-          {customCategories.length > 0 && (
+          {filteredCustomCategories.length > 0 && (
             <>
               <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 Custom
               </div>
-              {customCategories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
+              {filteredCustomCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
                   <div className="flex items-center gap-2">
-                    <Tag className="h-3 w-3" />
-                    {cat}
+                    <span className="text-sm">{cat.icon || "🏷️"}</span>
+                    {cat.name}
                   </div>
                 </SelectItem>
               ))}

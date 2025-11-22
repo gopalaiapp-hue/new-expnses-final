@@ -7,17 +7,17 @@ export type SyncStatus = "pending" | "in_progress" | "synced" | "failed";
 export type BudgetPeriod = "monthly" | "weekly";
 export type TransactionType = "expense" | "income";
 export type AccountType = "cash" | "bank" | "card" | "wallet";
-export type GoalType = 
-  | "vehicle_purchase" 
-  | "housing" 
-  | "travel" 
-  | "wedding" 
-  | "emergency_fund" 
-  | "education" 
-  | "electronics" 
-  | "festival" 
-  | "business" 
-  | "gift" 
+export type GoalType =
+  | "vehicle_purchase"
+  | "housing"
+  | "travel"
+  | "wedding"
+  | "emergency_fund"
+  | "education"
+  | "electronics"
+  | "festival"
+  | "business"
+  | "gift"
   | "other";
 export type GoalPriority = "high" | "medium" | "low";
 export type TransferType = "manual" | "auto" | "income_percentage";
@@ -201,6 +201,26 @@ export interface CustomCategory {
   name: string;
   type: "expense" | "income";
   icon?: string;
+  created_by: string;
+  created_at: string;
+}
+
+export type RecurringFrequency = "daily" | "weekly" | "monthly" | "yearly";
+
+export interface RecurringTransaction {
+  id: string;
+  family_id: string;
+  amount: number;
+  currency: string;
+  category: string;
+  description: string;
+  frequency: RecurringFrequency;
+  start_date: string;
+  next_due_date: string;
+  last_paid_date?: string;
+  is_active: boolean;
+  payment_method?: PaymentMethod;
+  account_id?: string;
   created_by: string;
   created_at: string;
 }

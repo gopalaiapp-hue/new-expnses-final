@@ -10,10 +10,12 @@ import {
   Account,
   Goal,
   GoalTransfer,
+  CustomCategory,
+  RecurringTransaction,
 } from "../types";
 
 const DB_NAME = "KharchaPalDB";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 class Database {
   private db: IDBDatabase | null = null;
@@ -60,27 +62,38 @@ class Database {
           const budgetStore = db.createObjectStore("budgets", { keyPath: "id" });
           budgetStore.createIndex("family_id", "family_id", { unique: false });
         }
-        
+
         // Version 2: Added accounts store
         if (!db.objectStoreNames.contains("accounts")) {
           const accountStore = db.createObjectStore("accounts", { keyPath: "id" });
           accountStore.createIndex("family_id", "family_id", { unique: false });
         }
-        
+
         // Version 3: Added goals and goal_transfers stores
         if (!db.objectStoreNames.contains("goals")) {
           const goalStore = db.createObjectStore("goals", { keyPath: "id" });
           goalStore.createIndex("family_id", "family_id", { unique: false });
         }
-        
+
         if (!db.objectStoreNames.contains("goal_transfers")) {
           const transferStore = db.createObjectStore("goal_transfers", { keyPath: "id" });
           transferStore.createIndex("goal_id", "goal_id", { unique: false });
         }
-        
+
         if (!db.objectStoreNames.contains("syncQueue")) {
           const syncStore = db.createObjectStore("syncQueue", { keyPath: "id" });
           syncStore.createIndex("status", "status", { unique: false });
+        }
+
+        // Version 4: Added custom_categories and recurring_transactions stores
+        if (!db.objectStoreNames.contains("custom_categories")) {
+          const categoryStore = db.createObjectStore("custom_categories", { keyPath: "id" });
+          categoryStore.createIndex("family_id", "family_id", { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains("recurring_transactions")) {
+          const recurringStore = db.createObjectStore("recurring_transactions", { keyPath: "id" });
+          recurringStore.createIndex("family_id", "family_id", { unique: false });
         }
       };
     });
@@ -276,6 +289,36 @@ class Database {
 
   async getPendingSyncItems(): Promise<SyncItem[]> {
     return this.getAllByIndex("syncQueue", "status", "pending");
+  }
+
+  // Custom Category methods
+  async addCustomCategory(category: CustomCategory): Promise<void> {
+    return this.add("custom_categories", category);
+  }
+
+  async getCustomCategoriesByFamily(familyId: string): Promise<CustomCategory[]> {
+    return this.getAllByIndex("custom_categories", "family_id", familyId);
+  }
+
+  async deleteCustomCategory(id: string): Promise<void> {
+    return this.delete("custom_categories", id);
+  }
+
+  // Recurring Transaction methods
+  async addRecurringTransaction(transaction: RecurringTransaction): Promise<void> {
+    return this.add("recurring_transactions", transaction);
+  }
+
+  async updateRecurringTransaction(transaction: RecurringTransaction): Promise<void> {
+    return this.put("recurring_transactions", transaction);
+  }
+
+  async getRecurringTransactionsByFamily(familyId: string): Promise<RecurringTransaction[]> {
+    return this.getAllByIndex("recurring_transactions", "family_id", familyId);
+  }
+
+  async deleteRecurringTransaction(id: string): Promise<void> {
+    return this.delete("recurring_transactions", id);
   }
 }
 
