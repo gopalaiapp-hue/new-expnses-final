@@ -12,7 +12,7 @@ import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense, PaymentLine, EXPENSE_CATEGORIES, PaymentMethod, DebtRecord } from "../../types";
 import { generateId, formatCurrency, validatePaymentLines, formatDate } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface AddExpenseModalProps {
   open: boolean;
@@ -68,7 +68,7 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
   const handleBorrowedToggle = (index: number, userId?: string) => {
     const updated = [...paymentLines];
     const currentMeta = updated[index].meta || {};
-    
+
     if (userId) {
       // Setting borrowed_from
       updated[index] = {
@@ -84,6 +84,21 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
       };
     }
     setPaymentLines(updated);
+  };
+
+  // Helper to toggle borrowed status for the main switch
+  const toggleBorrowedStatus = (checked: boolean) => {
+    if (checked) {
+      // If enabling, default to the first other user if available
+      const otherUser = users.find(u => u.id !== currentUser?.id);
+      if (otherUser) {
+        handleBorrowedToggle(0, otherUser.id);
+      } else {
+        toast.error("No other family members to borrow from!");
+      }
+    } else {
+      handleBorrowedToggle(0, undefined);
+    }
   };
 
   const handleSubmit = async () => {
@@ -104,14 +119,14 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
     const finalPaymentLines: PaymentLine[] = useSplitPayment
       ? (paymentLines as PaymentLine[])
       : [
-          {
-            id: generateId(),
-            method: paymentLines[0].method as PaymentMethod,
-            amount: amount,
-            payer_user_id: currentUser.id,
-            meta: paymentLines[0].meta,
-          },
-        ];
+        {
+          id: generateId(),
+          method: paymentLines[0].method as PaymentMethod,
+          amount: amount,
+          payer_user_id: currentUser.id,
+          meta: paymentLines[0].meta,
+        },
+      ];
 
     // Validate payment lines
     const validation = validatePaymentLines(amount, finalPaymentLines);
@@ -276,14 +291,7 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
               <Switch
                 id="isBorrowed"
                 checked={!!paymentLines[0].meta?.borrowed_from}
-                onCheckedChange={(checked) =>
-                  handleBorrowedToggle(
-                    0,
-                    checked
-                      ? users.find((u) => u.id !== currentUser?.id)?.id
-                      : undefined
-                  )
-                }
+                onCheckedChange={toggleBorrowedStatus}
               />
             </div>
           )}
@@ -453,9 +461,9 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
             <Button variant="outline" onClick={handleClose} className="flex-1">
               Cancel
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting} 
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
               className="flex-1 bg-primary hover:bg-primary/90 text-white"
             >
               {isSubmitting ? "Saving..." : "Save Expense"}

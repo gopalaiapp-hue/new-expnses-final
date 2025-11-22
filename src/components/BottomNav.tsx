@@ -5,14 +5,17 @@ interface BottomNavProps {
   onTabChange: (tab: string) => void;
 }
 
-const NAV_ITEMS = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "transactions", label: "Transactions", icon: Receipt },
-  { id: "goals", label: "Goals", icon: Target },
-  { id: "more", label: "More", icon: Menu },
-];
+import { useLanguage } from "../lib/language";
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+  const { t } = useLanguage();
+
+  const NAV_ITEMS = [
+    { id: "home", label: t('home'), icon: Home },
+    { id: "transactions", label: t('transactions'), icon: Receipt },
+    { id: "goals", label: t('goals'), icon: Target },
+    { id: "more", label: t('more'), icon: Menu },
+  ];
   return (
     <nav className="fixed bottom-safe bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-lg border-t border-border elevation-4">
       <div className="max-w-4xl mx-auto flex items-center justify-around h-16 px-2">

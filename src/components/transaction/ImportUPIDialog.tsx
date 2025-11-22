@@ -4,14 +4,22 @@ import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
-import { Upload, FileJson, FileText, ArrowLeft, AlertCircle, Check } from "lucide-react";
+import { Upload, FileJson, FileText, ArrowLeft, AlertCircle, Check, Lock, File } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense, PaymentLine } from "../../types";
 import { generateId, formatDate } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Badge } from "../ui/badge";
 import { ScrollArea } from "../ui/scroll-area";
+import { Input } from "../ui/input";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface ImportUPIDialogProps {
   open: boolean;
@@ -88,7 +96,7 @@ function parsePasteData(text: string): ParsedTransaction[] {
         const isAmountFirst = pattern.source.startsWith("^₹?");
         const amount = parseFloat(isAmountFirst ? match[1] : match[2]);
         const merchant = (isAmountFirst ? match[2] : match[1]).trim();
-        
+
         transactions.push({
           amount,
           merchant,
@@ -168,11 +176,83 @@ function parseCSVData(text: string): ParsedTransaction[] {
 
 export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
   const { currentUser, addExpense } = useApp();
-  const [activeTab, setActiveTab] = useState("paste");
+  const [activeTab, setActiveTab] = useState("pdf");
   const [inputText, setInputText] = useState("");
   const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // PDF State
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [isReadingPdf, setIsReadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPdfFile(file);
+      setPdfError(null);
+    }
+  };
+
+  const extractTextFromPdf = async () => {
+    if (!pdfFile) return;
+
+    setIsReadingPdf(true);
+    setPdfError(null);
+
+    try {
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        password: pdfPassword
+      });
+
+      const pdf = await loadingTask.promise;
+      let fullText = "";
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(" ");
+        fullText += pageText + "\n";
+      }
+
+      // Simple parsing logic for PDF text
+      // This is a heuristic approach and might need refinement for specific bank statements
+      const transactions = parsePasteData(fullText);
+
+      if (transactions.length === 0) {
+        // Try to find patterns in the raw text if line-by-line failed
+        // Regex for "Date Description Amount" or similar common patterns
+        const rawPatterns = [
+          /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([0-9,]+\.\d{2})/g, // Date Desc Amount
+          /([0-9,]+\.\d{2})\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})/g  // Amount Desc Date
+        ];
+
+        // Implementation of raw text regex parsing could go here
+        // For now, we rely on the line-splitter in parsePasteData
+      }
+
+      if (transactions.length > 0) {
+        setParsedTransactions(transactions);
+        setShowPreview(true);
+      } else {
+        setPdfError("Could not extract valid transactions. Please check the file format.");
+      }
+
+    } catch (error: any) {
+      console.error("PDF Error:", error);
+      if (error.name === 'PasswordException') {
+        setPdfError("Password required");
+      } else {
+        setPdfError("Failed to read PDF. " + error.message);
+      }
+    } finally {
+      setIsReadingPdf(false);
+    }
+  };
 
   const handlePreview = () => {
     let transactions: ParsedTransaction[] = [];
@@ -247,6 +327,9 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
     setInputText("");
     setParsedTransactions([]);
     setShowPreview(false);
+    setPdfFile(null);
+    setPdfPassword("");
+    setPdfError(null);
     onClose();
   };
 
@@ -270,9 +353,9 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
                 {showPreview ? "Preview Transactions" : "Import UPI Transactions"}
               </DialogTitle>
               <DialogDescription>
-                {showPreview 
+                {showPreview
                   ? `Review ${parsedTransactions.length} transactions before importing`
-                  : "Upload a JSON/CSV file or paste transaction data. We'll auto-categorize using Indian merchant keywords."}
+                  : "Upload a PDF statement, JSON/CSV file, or paste transaction data."}
               </DialogDescription>
             </div>
           </div>
@@ -284,17 +367,78 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Upload or paste your UPI transaction data. We'll automatically detect categories based on merchant names.
+                We'll automatically detect categories based on merchant names.
               </AlertDescription>
             </Alert>
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="pdf">PDF</TabsTrigger>
                 <TabsTrigger value="paste">Paste</TabsTrigger>
                 <TabsTrigger value="json">JSON</TabsTrigger>
                 <TabsTrigger value="csv">CSV</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="pdf" className="space-y-4">
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center space-y-4 hover:bg-muted/50 transition-colors">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <File className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {pdfFile ? pdfFile.name : "Upload Bank Statement PDF"}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {pdfFile ? `${(pdfFile.size / 1024).toFixed(1)} KB` : "Click to browse or drag and drop"}
+                    </p>
+                  </div>
+                  <Input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    id="pdf-upload"
+                    onChange={handlePdfUpload}
+                  />
+                  <Button variant="outline" onClick={() => document.getElementById('pdf-upload')?.click()}>
+                    Select PDF
+                  </Button>
+                </div>
+
+                {pdfFile && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="pdf-password">Password (if protected)</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="pdf-password"
+                          type="password"
+                          placeholder="Enter PDF password"
+                          value={pdfPassword}
+                          onChange={(e) => setPdfPassword(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    {pdfError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{pdfError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <Button
+                      onClick={extractTextFromPdf}
+                      disabled={isReadingPdf}
+                      className="w-full"
+                    >
+                      {isReadingPdf ? "Reading PDF..." : "Process PDF"}
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
 
               <TabsContent value="paste" className="space-y-4">
                 <div className="space-y-2">
@@ -307,14 +451,9 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
                     className="font-mono text-sm"
                   />
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <p className="font-medium mb-2">Format examples:</p>
-                  <div className="space-y-1 text-muted-foreground font-mono text-xs">
-                    <div>250 Zomato</div>
-                    <div>₹500 Uber</div>
-                    <div>BigBasket 1200</div>
-                  </div>
-                </div>
+                <Button onClick={handlePreview} className="w-full" disabled={!inputText.trim()}>
+                  Preview Transactions
+                </Button>
               </TabsContent>
 
               <TabsContent value="json" className="space-y-4">
@@ -328,19 +467,9 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
                     className="font-mono text-sm"
                   />
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <p className="font-medium mb-2">JSON format:</p>
-                  <pre className="text-muted-foreground font-mono text-xs overflow-x-auto">
-{`[
-  {
-    "amount": 250,
-    "merchant": "Zomato",
-    "category": "food",
-    "date": "2025-11-04"
-  }
-]`}
-                  </pre>
-                </div>
+                <Button onClick={handlePreview} className="w-full" disabled={!inputText.trim()}>
+                  Preview Transactions
+                </Button>
               </TabsContent>
 
               <TabsContent value="csv" className="space-y-4">
@@ -354,20 +483,11 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
                     className="font-mono text-sm"
                   />
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <p className="font-medium mb-2">CSV format:</p>
-                  <pre className="text-muted-foreground font-mono text-xs">
-{`amount,merchant,category,date
-250,Zomato,food,2025-11-04
-500,Uber,transport,2025-11-04`}
-                  </pre>
-                </div>
+                <Button onClick={handlePreview} className="w-full" disabled={!inputText.trim()}>
+                  Preview Transactions
+                </Button>
               </TabsContent>
             </Tabs>
-
-            <Button onClick={handlePreview} className="w-full" disabled={!inputText.trim()}>
-              Preview Transactions
-            </Button>
           </div>
         ) : (
           <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
