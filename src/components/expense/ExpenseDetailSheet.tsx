@@ -12,19 +12,31 @@ import { Edit2, ArrowLeft, ArrowRight, AlertCircle, TrendingDown, Calendar, Tag,
 import { useApp } from "../../lib/store";
 import { Expense } from "../../types";
 import { formatCurrency, formatDateTime, getCategoryIcon, getPaymentMethodIcon, getPaymentMethodLabel, getInitials } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface ExpenseDetailSheetProps {
-  expense: Expense;
+  expenseId: string;
   open: boolean;
   onClose: () => void;
 }
 
-export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailSheetProps) {
-  const { users, debts, currentUser, updateExpense, categories } = useApp();
+export function ExpenseDetailSheet({ expenseId, open, onClose }: ExpenseDetailSheetProps) {
+  const { users, debts, currentUser, updateExpense, expenses } = useApp();
+  const expense = expenses.find(e => e.id === expenseId);
+
   const [isEditing, setIsEditing] = useState(false);
-  const [editAmount, setEditAmount] = useState(expense.total_amount.toString());
-  const [editCategory, setEditCategory] = useState(expense.category);
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+
+  useEffect(() => {
+    if (expense) {
+      setEditAmount(expense.total_amount.toString());
+      setEditCategory(expense.category);
+    }
+  }, [expense]);
+
+  if (!expense) return null;
 
   const creator = users.find((u) => u.id === expense.created_by);
   const canEdit = currentUser?.id === expense.created_by || currentUser?.role === "admin";
@@ -38,19 +50,23 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
   };
 
   const handleSaveEdit = async () => {
-    const newAmount = parseFloat(editAmount);
-    if (isNaN(newAmount) || newAmount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
+    if (!expense || !currentUser) return;
 
     try {
-      await updateExpense(expense.id, {
+      const newAmount = parseFloat(editAmount);
+      if (isNaN(newAmount) || newAmount <= 0) {
+        toast.error("Please enter a valid amount");
+        return;
+      }
+
+      await updateExpense({
+        ...expense,
         total_amount: newAmount,
         category: editCategory,
+        updated_at: new Date().toISOString(),
       });
 
-      toast.success("Expense updated successfully ✓");
+      toast.success("Expense updated successfully");
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update expense:", error);

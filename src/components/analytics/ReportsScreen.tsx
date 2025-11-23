@@ -30,11 +30,11 @@ const PAYMENT_COLORS = {
 };
 
 export function ReportsScreen({ onBack }: ReportsScreenProps) {
-  const { expenses } = useApp();
+  const { expenses, debts, goals, accounts, currentFamily, currentUser } = useApp();
 
   // Calculate summary stats
   const summaryStats = useMemo(() => {
-    const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalSpent = expenses.reduce((sum, exp) => sum + exp.total_amount, 0);
     const transactionCount = expenses.length;
     const averageTransaction = transactionCount > 0 ? totalSpent / transactionCount : 0;
 
@@ -57,7 +57,7 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
       if (!categoryTotals[exp.category]) {
         categoryTotals[exp.category] = 0;
       }
-      categoryTotals[exp.category] += exp.amount;
+      categoryTotals[exp.category] += exp.total_amount;
     });
 
     return Object.entries(categoryTotals)
@@ -86,7 +86,7 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
       const expDate = new Date(exp.date);
       const monthKey = expDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       if (monthlyData.hasOwnProperty(monthKey)) {
-        monthlyData[monthKey] += exp.amount;
+        monthlyData[monthKey] += exp.total_amount;
       }
     });
 
@@ -103,10 +103,11 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
     expenses.forEach(exp => {
       exp.payment_lines.forEach(line => {
         // Determine payment method from account_id
-        const method = line.account_id === "cash" ? "cash" 
-                     : line.account_id === "upi" ? "upi"
-                     : line.account_id.includes("card") ? "card"
-                     : "bank";
+        let method = "other";
+        if (line.account_id === "cash") method = "cash";
+        else if (line.account_id === "upi") method = "upi";
+        else if (line.account_id && line.account_id.includes("card")) method = "card";
+        else if (line.account_id) method = "bank";
 
         if (!methodTotals[method]) {
           methodTotals[method] = 0;
@@ -123,6 +124,46 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
       }))
       .sort((a, b) => b.value - a.value);
   }, [expenses, summaryStats.totalSpent]);
+
+  // Debt Data
+  const debtData = useMemo(() => {
+    if (!currentFamily || !currentUser) return [];
+
+    const youOwe = debts
+      .filter(d => d.borrower_user_id === currentUser.id && d.status === "open")
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    const owedToYou = debts
+      .filter(d => d.lender_user_id === currentUser.id && d.status === "open")
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    return [
+      { name: "You Owe", value: youOwe, fill: "#ef4444" },
+      { name: "Owed to You", value: owedToYou, fill: "#10b981" }
+    ].filter(d => d.value > 0);
+  }, [debts, currentUser, currentFamily]);
+
+  // Goal Progress Data (Top 5 active goals)
+  const goalData = useMemo(() => {
+    return goals
+      .filter(g => g.is_active)
+      .sort((a, b) => (b.current_amount / b.target_amount) - (a.current_amount / a.target_amount))
+      .slice(0, 5)
+      .map(g => ({
+        name: g.goal_name,
+        saved: g.current_amount,
+        remaining: g.target_amount - g.current_amount,
+        target: g.target_amount
+      }));
+  }, [goals]);
+
+  // Account Balances
+  const accountData = useMemo(() => {
+    return accounts.map(a => ({
+      name: a.name,
+      balance: a.current_balance
+    })).sort((a, b) => b.balance - a.balance);
+  }, [accounts]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -282,6 +323,81 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Debt Overview */}
+        {debtData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Debt Overview</CardTitle>
+              <CardDescription>Summary of what you owe and what is owed to you</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={debtData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {debtData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Goal Progress */}
+        {goalData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Goal Progress</CardTitle>
+              <CardDescription>Top active goals by completion status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart layout="vertical" data={goalData} margin={{ left: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={100} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="saved" name="Saved" stackId="a" fill="#10b981" />
+                  <Bar dataKey="remaining" name="Remaining" stackId="a" fill="#e5e7eb" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Account Balances */}
+        {accountData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Balances</CardTitle>
+              <CardDescription>Current balance across all accounts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={accountData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Bar dataKey="balance" name="Balance" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Payment Methods Distribution */}
         <Card>

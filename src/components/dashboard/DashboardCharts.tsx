@@ -16,7 +16,7 @@ export function DashboardCharts() {
     // Filter expenses for current month
     const monthExpenses = expenses.filter(
       (e) => new Date(e.date) >= startOfMonth &&
-      (currentUser?.role === "admin" || e.is_shared || e.created_by === currentUser?.id)
+        (currentUser?.role === "admin" || e.is_shared || e.created_by === currentUser?.id)
     );
 
     // Category breakdown
@@ -54,9 +54,9 @@ export function DashboardCharts() {
     });
 
     const paymentMethodData = Object.entries(methodTotals)
-      .map(([name, value]) => ({ 
-        name: name.charAt(0).toUpperCase() + name.slice(1), 
-        value 
+      .map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value
       }))
       .sort((a, b) => b.value - a.value);
 
@@ -64,7 +64,17 @@ export function DashboardCharts() {
   }, [expenses, currentUser, users]);
 
   if (categoryData.length === 0) {
-    return null;
+    return (
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <span className="text-2xl">📊</span>
+          </div>
+          <p className="font-medium">No spending data for this month</p>
+          <p className="text-sm">Add an expense to see your analytics</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

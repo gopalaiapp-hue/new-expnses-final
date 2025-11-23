@@ -14,14 +14,14 @@ interface ExpenseListProps {
 
 export function ExpenseList({ filters }: ExpenseListProps) {
   const { currentUser, expenses, users } = useApp();
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
 
   // Filter expenses based on user role
   let visibleExpenses = currentUser?.role === "admin"
     ? expenses
     : expenses.filter(
-        (e) => e.is_shared || e.created_by === currentUser?.id
-      );
+      (e) => e.is_shared || e.created_by === currentUser?.id
+    );
 
   // Apply active filters
   if (filters) {
@@ -29,7 +29,7 @@ export function ExpenseList({ filters }: ExpenseListProps) {
       // Search filter (by category or notes)
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           expense.category.toLowerCase().includes(query) ||
           (expense.notes && expense.notes.toLowerCase().includes(query));
         if (!matchesSearch) return false;
@@ -50,7 +50,7 @@ export function ExpenseList({ filters }: ExpenseListProps) {
       if (filters.timeRange !== "all") {
         const today = new Date();
         const expenseDate = new Date(expense.date);
-        
+
         switch (filters.timeRange) {
           case "today":
             if (expenseDate.toDateString() !== today.toDateString()) return false;
@@ -73,6 +73,9 @@ export function ExpenseList({ filters }: ExpenseListProps) {
   }
 
   const groupedExpenses = visibleExpenses.reduce((groups, expense) => {
+    const expenseDate = new Date(expense.date);
+    if (isNaN(expenseDate.getTime())) return groups;
+
     const dateKey = formatDate(expense.date);
     if (!groups[dateKey]) {
       groups[dateKey] = [];
@@ -88,13 +91,13 @@ export function ExpenseList({ filters }: ExpenseListProps) {
           <div className="text-5xl">{filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes") ? "🔍" : "📝"}</div>
         </div>
         <p className="text-muted-foreground text-lg mb-2">
-          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes") 
-            ? "No expenses match your filters" 
+          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
+            ? "No expenses match your filters"
             : "No expenses yet"}
         </p>
         <p className="text-sm text-muted-foreground">
-          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes") 
-            ? "Try adjusting your filters" 
+          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
+            ? "Try adjusting your filters"
             : `Tap the ${<span className="text-tertiary">+</span>} button to add your first expense`}
         </p>
       </div>
@@ -115,12 +118,12 @@ export function ExpenseList({ filters }: ExpenseListProps) {
             <div className="space-y-3">
               {dateExpenses.map((expense) => {
                 const creator = users.find((u) => u.id === expense.created_by);
-                
+
                 return (
                   <Card
                     key={expense.id}
                     className="p-4 elevation-1 hover:elevation-3 cursor-pointer transition-all duration-200 bg-card hover:bg-surface-variant/30 border-outline-variant/20 overflow-hidden"
-                    onClick={() => setSelectedExpense(expense)}
+                    onClick={() => setSelectedExpenseId(expense.id)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -175,11 +178,11 @@ export function ExpenseList({ filters }: ExpenseListProps) {
         ))}
       </div>
 
-      {selectedExpense && (
+      {selectedExpenseId && (
         <ExpenseDetailSheet
-          expense={selectedExpense}
-          open={!!selectedExpense}
-          onClose={() => setSelectedExpense(null)}
+          expenseId={selectedExpenseId}
+          open={!!selectedExpenseId}
+          onClose={() => setSelectedExpenseId(null)}
         />
       )}
     </>

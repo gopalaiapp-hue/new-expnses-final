@@ -23,8 +23,7 @@ import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import logo from "../logo/kharchapal.png";
 
-// Type declaration for logo import
-declare module "*.png";
+
 
 export function MainDashboard() {
   const { currentUser, currentFamily } = useApp();
@@ -283,7 +282,7 @@ export function MainDashboard() {
         }}>
           <Button
             size="icon"
-            className="rounded-full h-14 w-14 elevation-4 hover:elevation-5 bg-tertiary hover:bg-tertiary/90 text-tertiary-foreground transition-all duration-300 hover:scale-105 active:scale-95"
+            className="rounded-full h-14 w-14 elevation-4 hover:elevation-5 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95"
             onClick={handleFABClick}
           >
             <Plus className="h-6 w-6" />

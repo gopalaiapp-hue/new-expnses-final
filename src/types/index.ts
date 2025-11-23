@@ -227,18 +227,24 @@ export interface RecurringTransaction {
 
 // Category configuration
 export const EXPENSE_CATEGORIES = [
-  "Groceries",
-  "Utilities",
+  "Groceries/Kirana",
+  "Vegetables/Fruits",
+  "Milk/Dairy",
+  "Maid/Helper",
   "Rent",
-  "Transportation",
-  "Healthcare",
-  "Education",
-  "Entertainment",
+  "Utilities",
+  "Transportation/Auto",
+  "Fuel/Petrol",
+  "Chai/Snacks",
   "Food & Dining",
+  "Healthcare/Meds",
+  "Education/Tuition",
+  "Entertainment",
   "Shopping",
-  "Household Items",
+  "Puja/Festivals",
   "Personal Care",
-  "Gifts",
+  "Gifts/Shagun",
+  "Recharge/Mobile",
   "Other",
 ] as const;
 

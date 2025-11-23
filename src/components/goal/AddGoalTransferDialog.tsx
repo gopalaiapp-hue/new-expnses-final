@@ -19,6 +19,8 @@ interface AddGoalTransferDialogProps {
 }
 
 export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDialogProps) {
+ if (!goal) return null;
+  
   const { currentUser, currentFamily, accounts, addGoalTransfer, updateGoal, addExpense } = useApp();
   const [amount, setAmount] = useState("");
   const [fromAccountId, setFromAccountId] = useState<string>("");

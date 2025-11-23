@@ -104,39 +104,7 @@ export function DashboardStats() {
         </CardContent>
       </Card>
 
-      {/* You Owe Card */}
-      {stats.totalOwed > 0 && (
-        <Card className="border-destructive/30 bg-error-container/20 elevation-1 hover:elevation-3 transition-all duration-300">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-1.5 text-on-error-container">
-              <span className="inline-flex p-1.5 rounded-full bg-destructive/10">
-                <TrendingDown className="h-3.5 w-3.5" />
-              </span>
-              <span>You Owe</span>
-            </CardDescription>
-            <CardTitle className="text-xl text-destructive">
-              {formatCurrency(stats.totalOwed, currentFamily?.currency)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      )}
 
-      {/* Owed to You Card */}
-      {stats.totalOwedToMe > 0 && (
-        <Card className="border-success/30 bg-success-container/20 elevation-1 hover:elevation-3 transition-all duration-300">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-1.5 text-on-success-container">
-              <span className="inline-flex p-1.5 rounded-full bg-success/10">
-                <TrendingUp className="h-3.5 w-3.5" />
-              </span>
-              <span>Owed to You</span>
-            </CardDescription>
-            <CardTitle className="text-xl text-success">
-              {formatCurrency(stats.totalOwedToMe, currentFamily?.currency)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      )}
 
       {/* Family Members Card */}
       {currentUser?.role === "admin" && (

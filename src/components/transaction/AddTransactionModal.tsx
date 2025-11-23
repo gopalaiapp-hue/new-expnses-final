@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { Dialog, DialogContent } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -13,7 +13,7 @@ import { CalendarIcon, Upload, X, Plus, ArrowLeft, HandCoins, TrendingDown, Tren
 import { useApp } from "../../lib/store";
 import { Expense, Income, PaymentLine, DebtRecord, TransactionType } from "../../types";
 import { generateId, formatDate, validatePaymentLines, formatCurrency } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { PaymentLineRow } from "./PaymentLineRow";
 import { VisualCategorySelect } from "./VisualCategorySelect";
 import { ReceiptUploader } from "./ReceiptUploader";
@@ -36,6 +36,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
   const [paidBy, setPaidBy] = useState<string>(currentUser?.id || "");
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [borrowedFrom, setBorrowedFrom] = useState<string>("");
+  const [customLenderName, setCustomLenderName] = useState("");
   const [paymentLines, setPaymentLines] = useState<Partial<PaymentLine>[]>([
     {
       id: generateId(),
@@ -100,6 +101,11 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
       return;
     }
 
+    if (!date || isNaN(date.getTime())) {
+      toast.error("Please select a valid date");
+      return;
+    }
+
     if (!category) {
       toast.error(`Please select a ${isExpense ? "category" : "source"}`);
       return;
@@ -112,14 +118,17 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         const finalPaymentLines: PaymentLine[] = useSplitPayment
           ? (paymentLines as PaymentLine[])
           : [
-              {
-                id: generateId(),
-                method: paymentMethod as any,
-                amount: amount,
-                payer_user_id: paidBy,
-                meta: borrowedFrom ? { borrowed_from: borrowedFrom } : undefined,
-              },
-            ];
+            {
+              id: generateId(),
+              method: paymentMethod as any,
+              amount: amount,
+              payer_user_id: paidBy,
+              meta: borrowedFrom ? {
+                borrowed_from: borrowedFrom,
+                lender_name: borrowedFrom === "custom" ? customLenderName : undefined
+              } : undefined,
+            },
+          ];
 
         // Validate payment lines
         const validation = validatePaymentLines(amount, finalPaymentLines);
@@ -150,16 +159,18 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         // Create debt records for borrowed payments
         for (const line of finalPaymentLines) {
           if (line.meta?.borrowed_from) {
+            const isCustom = line.meta.borrowed_from === "custom";
             const debt: DebtRecord = {
               id: generateId(),
               family_id: currentFamily.id,
-              lender_user_id: line.meta.borrowed_from,
+              lender_user_id: isCustom ? "external" : line.meta.borrowed_from,
               borrower_user_id: line.payer_user_id,
               amount: line.amount,
               currency: currentFamily.currency,
               status: "open",
               created_at: new Date().toISOString(),
               linked_expense_id: expense.id,
+              reminder_shown: false,
             };
             await addDebt(debt);
           }
@@ -218,14 +229,13 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
   };
 
   return (
-    <Sheet open={open} onOpenChange={(open) => !open && handleClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-lg p-0 overflow-y-auto max-h-[90vh]">
         {/* Header with Back Button - Color coded */}
-        <div className={`sticky top-0 z-10 border-b px-4 py-3 transition-colors ${
-          isExpense 
-            ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900" 
-            : "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
-        }`}>
+        <div className={`sticky top-0 z-10 border-b px-4 py-3 transition-colors ${isExpense
+          ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
+          : "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
+          }`}>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Button
@@ -252,15 +262,15 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </div>
             <Tabs value={transactionType} onValueChange={(v) => setTransactionType(v as TransactionType)} className="w-full">
               <TabsList className="grid w-full grid-cols-2 h-10 p-1">
-                <TabsTrigger 
-                  value="expense" 
+                <TabsTrigger
+                  value="expense"
                   className="text-xs data-[state=active]:bg-red-500 data-[state=active]:text-white"
                 >
                   <TrendingDown className="h-3 w-3 mr-1" />
                   Expense
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="income" 
+                <TabsTrigger
+                  value="income"
                   className="text-xs data-[state=active]:bg-green-500 data-[state=active]:text-white"
                 >
                   <TrendingUp className="h-3 w-3 mr-1" />
@@ -322,6 +332,85 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </Popover>
           </div>
 
+          {/* Borrowed From - Available for both Simple and Split payments */}
+          {isExpense && (
+            <div className="space-y-3 pt-3 border-t">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="borrowedToggle" className="flex items-center gap-2 cursor-pointer">
+                  <HandCoins className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm">Borrowed from someone?</span>
+                </Label>
+                <Switch
+                  id="borrowedToggle"
+                  checked={!!borrowedFrom}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      const firstOtherUser = users.find((u) => u.id !== currentUser?.id);
+                      setBorrowedFrom(firstOtherUser?.id || "custom");
+                    } else {
+                      setBorrowedFrom("");
+                      setCustomLenderName("");
+                    }
+                  }}
+                />
+              </div>
+
+              {borrowedFrom && (
+                <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
+                    <HandCoins className="h-4 w-4" />
+                    <span className="font-medium">This money was borrowed</span>
+                  </div>
+                  <Select value={borrowedFrom} onValueChange={setBorrowedFrom}>
+                    <SelectTrigger className="bg-background border-orange-300 dark:border-orange-800">
+                      <SelectValue>
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">from</span>
+                          <span className="font-medium text-orange-600 dark:text-orange-400">
+                            {borrowedFrom === "custom"
+                              ? (customLenderName || "Someone else")
+                              : (users.find((u) => u.id === borrowedFrom)?.name || "someone")}
+                          </span>
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users
+                        .filter((u) => u.id !== currentUser?.id)
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="text-muted-foreground">from</span>
+                              <span className="font-medium">{user.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      <SelectItem value="custom">
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">from</span>
+                          <span className="font-medium">Someone else (Custom)</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {borrowedFrom === "custom" && (
+                    <Input
+                      placeholder="Enter lender's name"
+                      value={customLenderName}
+                      onChange={(e) => setCustomLenderName(e.target.value)}
+                      className="bg-background border-orange-300 dark:border-orange-800"
+                    />
+                  )}
+
+                  <p className="text-xs text-orange-700 dark:text-orange-400">
+                    An IOU will be created for ₹{totalAmount || "0.00"} when you save this transaction
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Simple Payment - Only for Expenses when Split is OFF */}
           {isExpense && !useSplitPayment && (
             <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
@@ -357,64 +446,6 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                     <SelectItem value="wallet">👛 Wallet</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Borrowed From */}
-              <div className="space-y-3 pt-3 border-t">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="borrowedToggle" className="flex items-center gap-2 cursor-pointer">
-                    <HandCoins className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm">Borrowed from someone?</span>
-                  </Label>
-                  <Switch
-                    id="borrowedToggle"
-                    checked={!!borrowedFrom}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        const firstOtherUser = users.find((u) => u.id !== currentUser?.id);
-                        setBorrowedFrom(firstOtherUser?.id || "");
-                      } else {
-                        setBorrowedFrom("");
-                      }
-                    }}
-                  />
-                </div>
-
-                {borrowedFrom && (
-                  <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/50 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
-                      <HandCoins className="h-4 w-4" />
-                      <span className="font-medium">This money was borrowed</span>
-                    </div>
-                    <Select value={borrowedFrom} onValueChange={setBorrowedFrom}>
-                      <SelectTrigger className="bg-background border-orange-300 dark:border-orange-800">
-                        <SelectValue>
-                          <span className="flex items-center gap-2">
-                            <span className="text-muted-foreground">from</span>
-                            <span className="font-medium text-orange-600 dark:text-orange-400">
-                              {users.find((u) => u.id === borrowedFrom)?.name || "someone"}
-                            </span>
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users
-                          .filter((u) => u.id !== currentUser?.id)
-                          .map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              <span className="flex items-center gap-2">
-                                <span className="text-muted-foreground">from</span>
-                                <span className="font-medium">{user.name}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-orange-700 dark:text-orange-400">
-                      An IOU will be created for ₹{totalAmount || "0.00"} when you save this transaction
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -481,7 +512,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                           className={
                             Math.abs(
                               (parseFloat(totalAmount) || 0) -
-                                paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
+                              paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
                             ) < 0.01
                               ? "font-medium text-green-600"
                               : "font-medium text-destructive"
@@ -536,14 +567,13 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
               <Button variant="outline" onClick={handleClose} className="flex-1" size="lg">
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={isSubmitting} 
-                className={`flex-1 ${
-                  isExpense 
-                    ? "bg-red-600 hover:bg-red-700" 
-                    : "bg-green-600 hover:bg-green-700"
-                } text-white`}
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className={`flex-1 ${isExpense
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-green-600 hover:bg-green-700"
+                  } text-white`}
                 size="lg"
               >
                 {isSubmitting ? "Saving..." : `Save ${isExpense ? "Expense" : "Income"}`}
@@ -551,7 +581,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

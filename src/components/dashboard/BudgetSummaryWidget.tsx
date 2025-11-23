@@ -27,6 +27,8 @@ export function BudgetSummaryWidget() {
 
         const currentMonthExpenses = expenses.filter(e => {
             const expenseDate = new Date(e.date);
+            if (isNaN(expenseDate.getTime())) return false;
+
             return (
                 expenseDate.getMonth() === currentMonth &&
                 expenseDate.getFullYear() === currentYear &&
@@ -78,7 +80,7 @@ export function BudgetSummaryWidget() {
                             </span>
                         </div>
                         <span className={`font-bold ${budgetStats.percentage >= 90 ? "text-destructive" :
-                                budgetStats.percentage >= 75 ? "text-orange-600" : "text-primary"
+                            budgetStats.percentage >= 75 ? "text-orange-600" : "text-primary"
                             }`}>
                             {budgetStats.percentage}%
                         </span>
