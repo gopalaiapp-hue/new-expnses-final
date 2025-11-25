@@ -7,6 +7,7 @@ import { useApp } from "../../lib/store";
 import { formatCurrency, getInitials } from "../../lib/utils";
 import { DebtRecord } from "../../types";
 import { SettleDebtDialog } from "./SettleDebtDialog";
+import { MessageCircle } from "lucide-react";
 
 export function DebtList() {
   const { currentUser, debts, users } = useApp();
@@ -113,9 +114,23 @@ export function DebtList() {
                         <p className="font-semibold text-green-600">
                           {formatCurrency(debt.amount, debt.currency)}
                         </p>
-                        <Badge variant="outline" className="mt-1">
-                          Pending
-                        </Badge>
+                        <div className="flex gap-2 mt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                            onClick={() => {
+                              const message = `Hi ${borrower?.name || "there"}, just a gentle reminder about the ${formatCurrency(debt.amount, debt.currency)} I lent you${debt.linked_expense_id ? "" : ""}.`;
+                              const url = borrower?.phone
+                                ? `https://wa.me/${borrower.phone}?text=${encodeURIComponent(message)}`
+                                : `https://wa.me/?text=${encodeURIComponent(message)}`;
+                              window.open(url, "_blank");
+                            }}
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            Nudge
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>

@@ -4,7 +4,11 @@ import { useApp } from "../../lib/store";
 import { useLanguage } from "../../lib/language";
 import { ArrowUpRight, ArrowDownLeft, HandCoins } from "lucide-react";
 
-export function DebtSummaryWidget() {
+interface DebtSummaryWidgetProps {
+    onShowHistory?: () => void;
+}
+
+export function DebtSummaryWidget({ onShowHistory }: DebtSummaryWidgetProps) {
     const { debts, currentUser } = useApp();
     const { t } = useLanguage();
 
@@ -34,7 +38,10 @@ export function DebtSummaryWidget() {
         <div className="grid grid-cols-2 gap-3">
             {/* You Owe */}
             {debtStats.youOwe > 0 && (
-                <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+                <Card
+                    className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 cursor-pointer hover:shadow-md transition-all"
+                    onClick={onShowHistory}
+                >
                     <CardContent className="p-4 flex flex-col gap-1">
                         <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300 mb-1">
                             <div className="p-1.5 bg-orange-100 dark:bg-orange-900/40 rounded-full">
@@ -51,7 +58,10 @@ export function DebtSummaryWidget() {
 
             {/* Owed to You */}
             {debtStats.owedToYou > 0 && (
-                <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                <Card
+                    className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 cursor-pointer hover:shadow-md transition-all"
+                    onClick={onShowHistory}
+                >
                     <CardContent className="p-4 flex flex-col gap-1">
                         <div className="flex items-center gap-2 text-green-700 dark:text-green-300 mb-1">
                             <div className="p-1.5 bg-green-100 dark:bg-green-900/40 rounded-full">

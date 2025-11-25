@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -17,6 +18,8 @@ import { toast } from "sonner";
 import { PaymentLineRow } from "./PaymentLineRow";
 import { VisualCategorySelect } from "./VisualCategorySelect";
 import { ReceiptUploader } from "./ReceiptUploader";
+import { useVoiceInput } from "../../hooks/useVoiceInput";
+import { Mic } from "lucide-react";
 
 interface AddTransactionModalProps {
   open: boolean;
@@ -25,7 +28,7 @@ interface AddTransactionModalProps {
 }
 
 export function AddTransactionModal({ open, onClose, defaultType = "expense" }: AddTransactionModalProps) {
-  const { currentUser, currentFamily, users, addExpense, addIncome, addDebt } = useApp();
+  const { currentUser, currentFamily, users, addExpense, addIncome, addDebt, budgets, expenses } = useApp();
   const [transactionType, setTransactionType] = useState<TransactionType>(defaultType);
   const [totalAmount, setTotalAmount] = useState("");
   const [category, setCategory] = useState<string>("");
@@ -37,6 +40,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [borrowedFrom, setBorrowedFrom] = useState<string>("");
   const [customLenderName, setCustomLenderName] = useState("");
+  const [customLenderPhone, setCustomLenderPhone] = useState("");
   const [paymentLines, setPaymentLines] = useState<Partial<PaymentLine>[]>([
     {
       id: generateId(),
@@ -56,6 +60,19 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
       setPaidBy(currentUser.id);
     }
   }, [currentUser, paidBy]);
+
+  // Voice Input Logic
+  const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported: isVoiceSupported } = useVoiceInput();
+
+  useEffect(() => {
+    if (transcript) {
+      setNotes((prev) => {
+        const trimmed = prev.trim();
+        return trimmed ? `${trimmed} ${transcript}` : transcript;
+      });
+      resetTranscript();
+    }
+  }, [transcript, resetTranscript]);
 
   const handleAddPaymentLine = () => {
     setPaymentLines([
@@ -111,6 +128,32 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
       return;
     }
 
+    // Budget Warning Logic
+    if (isExpense && category && amount > 0) {
+      const budget = budgets.find(b => b.category === category);
+      if (budget) {
+        // Calculate current spend for this month/period
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const currentSpent = expenses
+          .filter(e => e.category === category && new Date(e.date) >= startOfMonth)
+          .reduce((sum, e) => sum + e.total_amount, 0);
+
+        const newTotal = currentSpent + amount;
+        const percentage = (newTotal / budget.limit_amount) * 100;
+
+        if (percentage >= 80 && percentage < 100) {
+          toast.warning(`Warning: You've used ${percentage.toFixed(0)}% of your ${category} budget!`, {
+            duration: 4000,
+          });
+        } else if (percentage >= 100) {
+          toast.error(`Alert: You've exceeded your ${category} budget!`, {
+            duration: 4000,
+          });
+        }
+      }
+    }
+
     setIsSubmitting(true);
     try {
       if (isExpense) {
@@ -125,8 +168,9 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
               payer_user_id: paidBy,
               meta: borrowedFrom ? {
                 borrowed_from: borrowedFrom,
-                lender_name: borrowedFrom === "custom" ? customLenderName : undefined
-              } : undefined,
+                lender_name: borrowedFrom === "custom" ? customLenderName : undefined,
+                lender_phone: borrowedFrom === "custom" ? customLenderPhone : undefined
+              } as any : undefined,
             },
           ];
 
@@ -188,6 +232,8 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
           source: category,
           date: date.toISOString(),
           notes: notes.trim() || undefined,
+          attachments: receipts,
+          receipt_urls: receipts,
           is_shared: isShared,
           sync_status: "pending",
           created_at: new Date().toISOString(),
@@ -197,10 +243,13 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         toast.success(`Income of ${formatCurrency(amount)} added ✓`);
       }
 
-      handleClose();
+      // Haptic feedback on success
+      await Haptics.impact({ style: ImpactStyle.Medium });
+
     } catch (error) {
-      console.error("Failed to add transaction:", error);
-      toast.error(`Failed to add ${isExpense ? "expense" : "income"}`);
+      console.error("Failed to save transaction:", error);
+      toast.error("Failed to save transaction");
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmitting(false);
     }
@@ -395,12 +444,22 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                   </Select>
 
                   {borrowedFrom === "custom" && (
-                    <Input
-                      placeholder="Enter lender's name"
-                      value={customLenderName}
-                      onChange={(e) => setCustomLenderName(e.target.value)}
-                      className="bg-background border-orange-300 dark:border-orange-800"
-                    />
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Enter lender's name"
+                        value={customLenderName}
+                        onChange={(e) => setCustomLenderName(e.target.value)}
+                        className="bg-background border-orange-300 dark:border-orange-800"
+                      />
+                      <Input
+                        placeholder="Lender's Phone (Optional)"
+                        value={customLenderPhone}
+                        onChange={(e) => setCustomLenderPhone(e.target.value)}
+                        type="tel"
+                        className="bg-background border-orange-300 dark:border-orange-800"
+                      />
+                      <p className="text-xs text-muted-foreground">Add phone number to send WhatsApp reminders</p>
+                    </div>
                   )}
 
                   <p className="text-xs text-orange-700 dark:text-orange-400">
@@ -533,12 +592,48 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
           {/* Receipt Uploader */}
           <div className="space-y-2">
             <Label>Attach Receipt (optional)</Label>
-            <ReceiptUploader receipts={receipts} onChange={setReceipts} />
+            <div className="flex items-center gap-4">
+              <ReceiptUploader receipts={receipts} onChange={setReceipts} />
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setReceipts([...receipts, reader.result as string]);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon">
+                  <Upload className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              {isVoiceSupported && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={`h-6 px-2 text-xs gap-1 ${isListening ? "text-red-600 animate-pulse" : "text-muted-foreground"}`}
+                  onClick={isListening ? stopListening : startListening}
+                >
+                  <Mic className="h-3 w-3" />
+                  {isListening ? "Listening..." : "Dictate"}
+                </Button>
+              )}
+            </div>
             <Textarea
               id="notes"
               placeholder="Add any additional details..."
