@@ -16,7 +16,7 @@ export function SmartInsights() {
     const getExpensesForRange = (start: Date, end: Date) => {
         return expenses
             .filter(e => isWithinInterval(new Date(e.date), { start, end }))
-            .reduce((sum, e) => sum + e.amount, 0);
+            .reduce((sum, e) => sum + e.total_amount, 0);
     };
 
     // Helper to get total income for a date range
@@ -89,7 +89,7 @@ export function SmartInsights() {
         expenses
             .filter(e => isWithinInterval(new Date(e.date), { start: thisMonthStart, end: thisMonthEnd }))
             .forEach(e => {
-                categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
+                categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.total_amount;
             });
 
         const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];

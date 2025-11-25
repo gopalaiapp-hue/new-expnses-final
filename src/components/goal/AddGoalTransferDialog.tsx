@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -19,8 +20,8 @@ interface AddGoalTransferDialogProps {
 }
 
 export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDialogProps) {
- if (!goal) return null;
-  
+  if (!goal) return null;
+
   const { currentUser, currentFamily, accounts, addGoalTransfer, updateGoal, addExpense } = useApp();
   const [amount, setAmount] = useState("");
   const [fromAccountId, setFromAccountId] = useState<string>("");
@@ -57,7 +58,7 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       const transfer: GoalTransfer = {
         id: generateId(),
         goal_id: goal.id,
-        from_account_id: fromAccountId || undefined,
+        from_account_id: paymentMethod === "bank" ? fromAccountId : undefined,
         amount: transferAmount,
         transfer_type: "manual",
         transfer_method: paymentMethod,
@@ -70,53 +71,72 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
 
       await addGoalTransfer(transfer);
 
-      // Create a corresponding expense record
-      // Only if a specific account is selected or it's a cash/upi payment that implies spending
-      // If it's just a transfer within accounts (e.g. Bank to Goal), it might be a transfer, not an expense.
-      // But the user requirement says "Goals adding money and reflection in expenses".
-      // So we will create an expense.
+      // If Bank Transfer, we need to deduct from the bank account
+      // We do this by creating an expense linked to that account
+      if (paymentMethod === "bank" && fromAccountId) {
+        const paymentLine: PaymentLine = {
+          id: generateId(),
+          method: "bank",
+          amount: transferAmount,
+          payer_user_id: currentUser.id,
+          account_id: fromAccountId,
+        };
 
-      const paymentLine: PaymentLine = {
-        id: generateId(),
-        method: paymentMethod,
-        amount: transferAmount,
-        payer_user_id: currentUser.id,
-        account_id: fromAccountId || "cash", // Default to cash if no account selected, or maybe we should enforce account selection?
-        // If fromAccountId is empty, it might mean "Cash" or external source.
-      };
+        const newExpense: Expense = {
+          id: generateId(),
+          family_id: currentUser.family_id,
+          created_by: currentUser.id,
+          total_amount: transferAmount,
+          currency: "INR",
+          category: "savings",
+          date: formatDate(new Date()),
+          notes: `Transfer to goal: ${goal.goal_name}`,
+          payment_lines: [paymentLine],
+          attachments: [],
+          is_shared: true,
+          sync_status: "synced",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-      const newExpense: Expense = {
-        id: generateId(),
-        family_id: currentUser.family_id,
-        created_by: currentUser.id,
-        total_amount: transferAmount,
-        currency: "INR",
-        category: "savings",
-        date: formatDate(new Date()),
-        notes: `Contribution to goal: ${goal.goal_name}`,
-        payment_lines: [paymentLine],
-        attachments: [],
-        is_shared: true,
-        sync_status: "synced",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+        await addExpense(newExpense);
+      }
+      else if (paymentMethod === "cash") {
+        const paymentLine: PaymentLine = {
+          id: generateId(),
+          method: "cash",
+          amount: transferAmount,
+          payer_user_id: currentUser.id,
+        };
 
-      await addExpense(newExpense);
+        const newExpense: Expense = {
+          id: generateId(),
+          family_id: currentUser.family_id,
+          created_by: currentUser.id,
+          total_amount: transferAmount,
+          currency: "INR",
+          category: "savings",
+          date: formatDate(new Date()),
+          notes: `Cash contribution to goal: ${goal.goal_name}`,
+          payment_lines: [paymentLine],
+          attachments: [],
+          is_shared: true,
+          sync_status: "synced",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
+        await addExpense(newExpense);
+      }
+
+      // Update goal current amount
       // Update goal current amount
       const updatedGoal: Goal = {
         ...goal,
         current_amount: goal.current_amount + transferAmount,
+        sync_status: "pending",
         updated_at: new Date().toISOString(),
       };
-
-      // Check if goal is completed
-      if (updatedGoal.current_amount >= updatedGoal.target_amount) {
-        updatedGoal.is_active = false;
-        updatedGoal.completed_at = new Date().toISOString();
-        toast.success("Goal reached! 🎉");
-      }
 
       await updateGoal(updatedGoal);
 
@@ -125,6 +145,7 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
     } catch (error) {
       console.error("Failed to add transfer:", error);
       toast.error("Failed to add money to goal");
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmitting(false);
     }
@@ -247,8 +268,8 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
                   key={method}
                   onClick={() => setPaymentMethod(method)}
                   className={`p-3 rounded-xl border-2 transition-all ${paymentMethod === method
-                      ? `bg-gradient-to-br ${info.color} border-primary shadow-md scale-105`
-                      : `bg-white dark:bg-slate-950 border-border hover:border-primary/50`
+                    ? `bg-gradient-to-br ${info.color} border-primary shadow-md scale-105`
+                    : `bg-white dark:bg-slate-950 border-border hover:border-primary/50`
                     }`}
                 >
                   <div className="text-3xl mb-2">{info.icon}</div>
@@ -267,30 +288,24 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
             )}
           </div>
 
-          {/* From Account */}
-          <div className="space-y-2">
-            <Label htmlFor="fromAccount">Which Account? (optional)</Label>
-            <Select value={fromAccountId} onValueChange={setFromAccountId}>
-              <SelectTrigger id="fromAccount" className="h-11">
-                <SelectValue placeholder="Select account..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No specific account</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name} - {formatCurrency(account.current_balance)}
-                  </SelectItem>
-                ))}
-                {accounts.length === 0 && (
-                  <>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* From Account - Only if Bank Transfer */}
+          {paymentMethod === "bank" && (
+            <div className="space-y-2">
+              <Label htmlFor="fromAccount">Which Bank Account? *</Label>
+              <Select value={fromAccountId} onValueChange={setFromAccountId}>
+                <SelectTrigger id="fromAccount" className="h-11">
+                  <SelectValue placeholder="Select bank account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} - {formatCurrency(account.current_balance)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-2">

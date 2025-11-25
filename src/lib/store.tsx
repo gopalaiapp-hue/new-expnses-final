@@ -37,6 +37,7 @@ interface AppContextType extends AppState {
   updateGoal: (goal: Goal) => Promise<void>;
   addGoalTransfer: (transfer: GoalTransfer) => Promise<void>;
   addUser: (user: User) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
   addCustomCategory: (category: CustomCategory) => Promise<void>;
   deleteCustomCategory: (id: string) => Promise<void>;
   addRecurringTransaction: (transaction: RecurringTransaction) => Promise<void>;
@@ -425,6 +426,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateGoal,
         addGoalTransfer,
         addUser,
+        updateUser: async (user: User) => {
+          await db.updateUser(user);
+          setState(prev => ({
+            ...prev,
+            users: prev.users.map(u => u.id === user.id ? user : u),
+            currentUser: prev.currentUser?.id === user.id ? user : prev.currentUser,
+          }));
+        },
         addCustomCategory,
         deleteCustomCategory,
         addRecurringTransaction,
