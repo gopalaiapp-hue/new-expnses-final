@@ -11,16 +11,9 @@ interface PrivacyPolicyProps {
 export function PrivacyPolicy({ open, onClose }: PrivacyPolicyProps) {
     return (
         <Sheet open={open} onOpenChange={onClose}>
-            <SheetContent side="bottom" className="h-[90vh] flex flex-col">
+            <SheetContent side="right" className="w-[420px] max-w-[90vw] h-[90vh] flex flex-col">
                 <SheetHeader className="flex-none p-6 border-b flex items-center gap-2 relative">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onClose}
-                        className="h-10 w-10 p-0 -ml-1 hover:bg-muted/50"
-                    >
-                        <ChevronLeft className="h-5 w-5" />
-                    </Button>
+
                     <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <SheetTitle className="flex items-center gap-2 text-base">
                             <Shield className="h-5 w-5 flex-shrink-0" />
@@ -32,8 +25,8 @@ export function PrivacyPolicy({ open, onClose }: PrivacyPolicyProps) {
                     </div>
                 </SheetHeader>
 
-                <ScrollArea className="flex-1 scrollbar-thin scrollbar-thumb-primary/60 scrollbar-track-muted/50 scrollbar-thumb-rounded hover:scrollbar-thumb-primary pr-4">
-                    <div className="p-6 space-y-6 [&>div]:max-w-none">
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-w-3 scrollbar-thumb-primary/60 scrollbar-track-transparent scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary pr-4">
+                    <div className="p-6 space-y-6 [&>div]:max-w-none min-h-full">
                         {/* Introduction */}
                         <section>
                             <h3 className="text-lg font-semibold mb-2">Your Privacy Matters</h3>
@@ -177,7 +170,7 @@ export function PrivacyPolicy({ open, onClose }: PrivacyPolicyProps) {
                             </p>
                         </section>
                     </div>
-                </ScrollArea>
+                </div>
             </SheetContent>
         </Sheet>
     );
