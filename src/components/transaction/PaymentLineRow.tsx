@@ -161,11 +161,15 @@ export function PaymentLineRow({
           <Switch
             id={`borrowed-${line.id}`}
             checked={!!line.meta?.borrowed_from}
-            onCheckedChange={(checked) =>
-              onBorrowedToggle(
-                checked ? users.find((u) => u.id !== currentUser?.id)?.id : undefined
-              )
-            }
+            onCheckedChange={(checked) => {
+              if (checked) {
+                // Find first non-current user, or default to 'custom' if none exist
+                const otherUser = users.find((u) => u.id !== currentUser?.id);
+                onBorrowedToggle(otherUser?.id || 'custom');
+              } else {
+                onBorrowedToggle(undefined);
+              }
+            }}
           />
         </div>
 

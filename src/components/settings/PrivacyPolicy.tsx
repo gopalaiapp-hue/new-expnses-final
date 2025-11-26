@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { ScrollArea } from "../ui/scroll-area";
-import { Shield, Lock, Database, Eye, FileText } from "lucide-react";
+import { Button } from "../ui/button";
+import { Shield, Lock, Database, Eye, FileText, ChevronLeft } from "lucide-react";
 
 interface PrivacyPolicyProps {
     open: boolean;
@@ -10,19 +11,29 @@ interface PrivacyPolicyProps {
 export function PrivacyPolicy({ open, onClose }: PrivacyPolicyProps) {
     return (
         <Sheet open={open} onOpenChange={onClose}>
-            <SheetContent side="bottom" className="h-[90vh]">
-                <SheetHeader>
-                    <SheetTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5" />
-                        Privacy Policy
-                    </SheetTitle>
-                    <SheetDescription>
-                        How KharchaPal handles your data
-                    </SheetDescription>
+            <SheetContent side="bottom" className="h-[90vh] flex flex-col">
+                <SheetHeader className="flex-none p-6 border-b flex items-center gap-2 relative">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onClose}
+                        className="h-10 w-10 p-0 -ml-1 hover:bg-muted/50"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <SheetTitle className="flex items-center gap-2 text-base">
+                            <Shield className="h-5 w-5 flex-shrink-0" />
+                            Privacy Policy
+                        </SheetTitle>
+                        <SheetDescription className="text-xs">
+                            How KharchaPal handles your data
+                        </SheetDescription>
+                    </div>
                 </SheetHeader>
 
-                <ScrollArea className="h-[calc(100%-80px)] mt-4">
-                    <div className="space-y-6 pr-4">
+                <ScrollArea className="flex-1 scrollbar-thin scrollbar-thumb-primary/60 scrollbar-track-muted/50 scrollbar-thumb-rounded hover:scrollbar-thumb-primary pr-4">
+                    <div className="p-6 space-y-6 [&>div]:max-w-none">
                         {/* Introduction */}
                         <section>
                             <h3 className="text-lg font-semibold mb-2">Your Privacy Matters</h3>
@@ -151,7 +162,12 @@ export function PrivacyPolicy({ open, onClose }: PrivacyPolicyProps) {
                                 If you have any questions about this Privacy Policy or how KharchaPal handles your data,
                                 please contact us at:
                             </p>
-                            <p className="text-sm font-medium">support@kharchapal.app</p>
+                            <a
+                                href="mailto:niteshjha.uiux@yahoo.com"
+                                className="text-sm font-medium text-primary hover:underline"
+                            >
+                                niteshjha.uiux@yahoo.com
+                            </a>
                         </section>
 
                         {/* Last Updated */}

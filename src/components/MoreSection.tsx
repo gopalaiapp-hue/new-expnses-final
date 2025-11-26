@@ -20,12 +20,25 @@ import {
   Languages,
   Tag,
   RefreshCw,
-  Shield
+  Shield,
+  CreditCard,
+  Crown,
+  Sparkles
 } from "lucide-react";
 import { useApp } from "../lib/store";
 import { useLanguage, Language } from "../lib/language";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "./ui/alert-dialog";
 import { FamilySettings } from "./settings/FamilySettings";
 import { CategorySettings } from "./settings/CategorySettings";
 import { RecurringTransactionsList } from "./transaction/RecurringTransactionsList";
@@ -43,6 +56,7 @@ import { AddGoalDialog } from "./goal/AddGoalDialog";
 import { AddDebtDialog } from "./debt/AddDebtDialog";
 import { toast } from "sonner";
 import { PrivacyPolicy } from "./settings/PrivacyPolicy";
+import { cn } from "../lib/utils";
 
 interface MoreSectionProps {
   onViewChange?: (view: string) => void;
@@ -50,7 +64,7 @@ interface MoreSectionProps {
 }
 
 export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
-  const { currentUser, currentFamily, logout, debts, goals, budgets, accounts, expenses, income, goalTransfers, users } = useApp();
+  const { currentUser, currentFamily, logout, debts, goals, budgets, accounts, expenses } = useApp();
   const { language, setLanguage, t } = useLanguage();
   const [showDialog, setShowDialog] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -61,15 +75,18 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   // Count active items
-  const activeDebts = debts.filter(d => d.status === "open");
+  const activeDebts = debts.filter(d => d.status === "pending");
   const activeGoals = goals.filter(g => g.is_active);
   const activeBudgets = budgets.length;
   const activeAccounts = accounts.length;
 
   const handleCopyInviteCode = () => {
-    toast.info("🚀 Coming Soon!", {
-      description: "Invite feature is being enhanced and will be available soon!"
-    });
+    if (currentFamily?.invite_code) {
+      navigator.clipboard.writeText(currentFamily.invite_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Invite code copied!");
+    }
   };
 
   const handleExportData = () => {
@@ -86,49 +103,77 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
     }
   };
 
-  const menuItems = [
+  // Quick Action Grid Items
+  const quickActions = [
     {
       id: "reports",
       title: t('reports'),
-      description: "View spending insights",
       icon: BarChart3,
-      iconColor: "text-chart-1",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-900/30",
       onClick: onShowReports || (() => setShowDialog("reports")),
-    },
-    {
-      id: "about",
-      title: t('about'),
-      description: "Developer info & support",
-      icon: Users,
-      iconColor: "text-tertiary",
-      onClick: () => setShowDialog("about"),
+      description: "Spending insights"
     },
     {
       id: "budgets",
       title: t('budgets'),
-      description: "Set spending limits",
       icon: CircleDollarSign,
-      iconColor: "text-purple-600",
-      badge: activeBudgets > 0 ? `${activeBudgets}` : undefined,
+      color: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-100 dark:bg-purple-900/30",
       onClick: () => setShowDialog("budgets"),
+      badge: activeBudgets > 0 ? activeBudgets : undefined,
+      description: "Set limits"
     },
     {
       id: "accounts",
       title: t('accounts'),
-      description: "Manage payment accounts",
       icon: Wallet,
-      iconColor: "text-green-600",
-      badge: activeAccounts > 0 ? `${activeAccounts}` : undefined,
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
       onClick: () => setShowDialog("accounts"),
+      badge: activeAccounts > 0 ? activeAccounts : undefined,
+      description: "Manage cards"
+    },
+    {
+      id: "goals",
+      title: "Goals",
+      icon: Target,
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
+      onClick: () => setShowDialog("goals"),
+      badge: activeGoals.length > 0 ? activeGoals.length : undefined,
+      description: "Savings targets"
     },
     {
       id: "ious",
       title: t('debts'),
-      description: "Money lent and borrowed",
       icon: HandCoins,
-      iconColor: "text-orange-600",
-      badge: activeDebts.length > 0 ? `${activeDebts.length}` : undefined,
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-100 dark:bg-orange-900/30",
       onClick: () => setShowDialog("ious"),
+      badge: activeDebts.length > 0 ? activeDebts.length : undefined,
+      description: "Lent & Borrowed"
+    },
+    {
+      id: "subscriptions",
+      title: "Subs",
+      icon: RefreshCw,
+      color: "text-pink-600 dark:text-pink-400",
+      bgColor: "bg-pink-100 dark:bg-pink-900/30",
+      onClick: () => setShowDialog("subscriptions"),
+      description: "Recurring"
+    }
+  ];
+
+  // List Menu Items
+  const menuItems = [
+    {
+      id: "categories",
+      title: "Categories",
+      description: "Manage custom categories",
+      icon: Tag,
+      iconColor: "text-indigo-500",
+      onClick: () => setShowDialog("categories"),
     },
     {
       id: "family",
@@ -140,50 +185,42 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
       adminOnly: true,
     },
     {
-      id: "guide",
-      title: t('guide'),
-      description: "Learn how to use KharchaPal",
-      icon: BookOpen,
-      iconColor: "text-tertiary",
-      onClick: () => setShowDialog("guide"),
-    },
-    {
       id: "settings",
       title: t('settings'),
-      description: "Family preferences",
+      description: "App preferences",
       icon: Settings,
-      iconColor: "text-on-surface-variant",
+      iconColor: "text-slate-500",
       onClick: () => setShowDialog("settings"),
-    },
-    {
-      id: "categories",
-      title: "Categories",
-      description: "Manage custom categories",
-      icon: Tag,
-      iconColor: "text-pink-600",
-      onClick: () => setShowDialog("categories"),
-    },
-    {
-      id: "subscriptions",
-      title: "Subscriptions",
-      description: "Manage recurring payments",
-      icon: RefreshCw,
-      iconColor: "text-purple-600",
-      onClick: () => setShowDialog("subscriptions"),
     },
     {
       id: "language",
       title: t('language'),
       description: "Change app language",
       icon: Languages,
-      iconColor: "text-blue-600",
+      iconColor: "text-blue-500",
       badge: language.toUpperCase(),
       onClick: () => setShowDialog("language"),
     },
     {
+      id: "guide",
+      title: t('guide'),
+      description: "How to use KharchaPal",
+      icon: BookOpen,
+      iconColor: "text-teal-500",
+      onClick: () => setShowDialog("guide"),
+    },
+    {
+      id: "about",
+      title: t('about'),
+      description: "Developer info & support",
+      icon: Sparkles,
+      iconColor: "text-amber-500",
+      onClick: () => setShowDialog("about"),
+    },
+    {
       id: "privacy",
       title: "Privacy Policy",
-      description: "How we handle your data",
+      description: "Data handling & security",
       icon: Shield,
       iconColor: "text-green-600",
       onClick: () => setShowPrivacyPolicy(true),
@@ -191,139 +228,189 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   ];
 
   return (
-    <div className="space-y-4">
-      {/* User Info Card */}
-      <Card className="bg-gradient-to-br from-primary/10 to-tertiary/10 border-primary/20">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl">
-              {currentUser?.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <CardTitle className="truncate">{currentUser?.name}</CardTitle>
-              <CardDescription className="truncate">
-                {currentFamily?.name}
-              </CardDescription>
-            </div>
-            {currentUser?.role === "admin" && (
-              <Badge variant="secondary" className="shrink-0">
-                Admin
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Menu Items */}
-      <div className="space-y-2">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-
-          // Skip admin-only items for non-admins
-          if (item.adminOnly && currentUser?.role !== "admin") {
-            return null;
-          }
-
-          return (
-            <button
-              key={item.id}
-              onClick={item.onClick}
-              className="w-full bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:bg-accent/50 transition-all duration-200 elevation-1 hover:elevation-2"
-            >
-              <div className={`h-10 w-10 rounded-lg bg-surface-variant/50 flex items-center justify-center ${item.iconColor}`}>
-                <Icon className="h-5 w-5" />
+    <div className="space-y-6 pb-20">
+      {/* Premium Profile Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 shadow-lg">
+        <div className="p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+                {currentUser?.name.charAt(0).toUpperCase()}
               </div>
-              <div className="flex-1 text-left min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate">{item.title}</h3>
-                  {item.badge && (
-                    <Badge variant="secondary" className="shrink-0">
-                      {item.badge}
-                    </Badge>
-                  )}
+              <div>
+                <h2 className="text-xl font-bold">{currentUser?.name}</h2>
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Users className="h-3 w-3" />
+                  <span>{currentFamily?.name}</span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">
-                  {item.description}
-                </p>
+                {currentUser?.role === "admin" && (
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary border border-primary/30">
+                    <Crown className="h-3 w-3" />
+                    <span>Admin</span>
+                  </div>
+                )}
               </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-            </button>
-          );
-        })}
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to sign out? You will need to log in again to access your data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={logout}>Sign out</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-card border border-border p-3 shadow-sm">
+              <p className="text-xs text-muted-foreground mb-1">Monthly Spend</p>
+              <p className="text-lg font-bold text-destructive">
+                {new Intl.NumberFormat('en-IN', { style: 'currency', currency: currentFamily?.currency || 'INR' }).format(
+                  (expenses || [])
+                    .filter(e => {
+                      const expDate = new Date(e.date);
+                      const now = new Date();
+                      return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear();
+                    })
+                    .reduce((sum, e) => sum + (e.total_amount || 0), 0)
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl bg-card border border-border p-3 shadow-sm">
+              <p className="text-xs text-muted-foreground mb-1">Active Goals</p>
+              <p className="text-lg font-bold text-primary">{activeGoals.length}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* App Info */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">App Version</span>
-            <span className="text-sm">1.0.0</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Storage</span>
-            <span className="text-sm">Local (Offline-first)</span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Actions Grid */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1 uppercase tracking-wider">
+          Quick Actions
+        </h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {quickActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={action.onClick}
+              className="relative flex flex-col items-start p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 group"
+            >
+              <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center mb-3 transition-transform group-hover:scale-110", action.bgColor, action.color)}>
+                <action.icon className="h-5 w-5" />
+              </div>
+              <span className="font-semibold text-sm">{action.title}</span>
+              <span className="text-xs text-muted-foreground mt-0.5">{action.description}</span>
+              {action.badge !== undefined && (
+                <span className="absolute top-3 right-3 h-5 min-w-[1.25rem] px-1 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                  {action.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Actions */}
-      <div className="space-y-2">
+      {/* Menu List */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1 uppercase tracking-wider">
+          More Options
+        </h3>
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+          {menuItems.map((item, index) => {
+            if (item.adminOnly && currentUser?.role !== "admin") return null;
+            const Icon = item.icon;
+
+            return (
+              <div key={item.id}>
+                <button
+                  onClick={item.onClick}
+                  className="w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className={cn("h-9 w-9 rounded-full flex items-center justify-center bg-muted", item.iconColor)}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{item.title}</span>
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+                </button>
+                {index < menuItems.length - 1 && <div className="h-[1px] bg-border/50 mx-4" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Data Management */}
+      <div className="space-y-3 pt-4">
         <Button
           variant="outline"
-          className="w-full justify-start gap-3"
+          className="w-full justify-start gap-3 h-12 rounded-xl border-dashed"
           onClick={handleExportData}
         >
-          <Download className="h-4 w-4" />
-          Export Data
+          <Download className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Export Data (CSV/PDF)</span>
         </Button>
         <Button
-          variant="outline"
-          className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+          variant="ghost"
+          className="w-full justify-start gap-3 h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleClearData}
         >
           <Trash2 className="h-4 w-4" />
-          Clear All Data
+          <span>Clear All Data</span>
         </Button>
       </div>
 
-      {/* Logout */}
-      <Button
-        variant="destructive"
-        className="w-full gap-2"
-        onClick={logout}
-      >
-        <LogOut className="h-4 w-4" />
-        Logout
-      </Button>
+      {/* Version Info */}
+      <div className="text-center py-4">
+        <p className="text-xs text-muted-foreground">KharchaPal v1.0.0 • Offline-first</p>
+      </div>
 
       {/* Dialogs */}
-      {/* Reports Dialog */}
       <Dialog open={showDialog === "reports"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reports & Charts</DialogTitle>
-            <DialogDescription>
-              Visualize your spending patterns and trends
-            </DialogDescription>
+            <DialogDescription>Visualize your spending patterns</DialogDescription>
           </DialogHeader>
           <DashboardCharts />
         </DialogContent>
       </Dialog>
 
-      {/* Budgets Dialog */}
       <Dialog open={showDialog === "budgets"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Monthly Budgets</DialogTitle>
-                <DialogDescription>
-                  Set spending limits for different categories
-                </DialogDescription>
+                <DialogDescription>Set spending limits</DialogDescription>
               </div>
               <Button size="sm" onClick={() => setShowAddBudget(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Budget
+                <Plus className="h-4 w-4" /> Add
               </Button>
             </div>
           </DialogHeader>
@@ -331,20 +418,16 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Accounts Dialog */}
       <Dialog open={showDialog === "accounts"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Bank Accounts</DialogTitle>
-                <DialogDescription>
-                  Manage your payment methods and accounts
-                </DialogDescription>
+                <DialogDescription>Manage payment methods</DialogDescription>
               </div>
               <Button size="sm" onClick={() => setShowAddAccount(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Account
+                <Plus className="h-4 w-4" /> Add
               </Button>
             </div>
           </DialogHeader>
@@ -352,215 +435,124 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Debts & Loans Dialog */}
+      <Dialog open={showDialog === "goals"} onOpenChange={() => setShowDialog(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Savings Goals</DialogTitle>
+                <DialogDescription>Track your savings targets</DialogDescription>
+              </div>
+              <Button size="sm" onClick={() => setShowAddGoal(true)} className="gap-2">
+                <Plus className="h-4 w-4" /> Add
+              </Button>
+            </div>
+          </DialogHeader>
+          <GoalList />
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDialog === "ious"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Debts & Loans</DialogTitle>
-                <DialogDescription>
-                  Money you've lent to or borrowed from others
-                </DialogDescription>
+                <DialogDescription>Money lent and borrowed</DialogDescription>
               </div>
               <Button size="sm" onClick={() => setShowAddDebt(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Record
+                <Plus className="h-4 w-4" /> Add
               </Button>
             </div>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-              <h4 className="font-medium mb-2 flex items-center gap-2">
-                <HandCoins className="h-4 w-4" />
-                How this works
-              </h4>
-              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li><strong>Money Lent:</strong> Money you gave to others (they owe you)</li>
-                <li><strong>Money Borrowed:</strong> Money you took from others (you owe them)</li>
-                <li>IOUs are created automatically when you mark a payment as "borrowed"</li>
-                <li>Click "Settle" to mark the debt as paid</li>
-              </ul>
-            </div>
-            <DebtList />
-          </div>
+          <DebtList />
         </DialogContent>
       </Dialog>
 
-      {/* Invite Dialog */}
       <Dialog open={showDialog === "invite"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Invite Family Members</DialogTitle>
-            <DialogDescription>
-              Share this code with family members to join
-            </DialogDescription>
+            <DialogDescription>Share this code to join</DialogDescription>
           </DialogHeader>
-          <Card>
+          <Card className="border-dashed">
             <CardHeader>
-              <CardTitle className="text-center text-3xl tracking-widest font-mono">
+              <CardTitle className="text-center text-3xl tracking-widest font-mono select-all">
                 {currentFamily?.invite_code}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleCopyInviteCode} className="w-full">
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Invite Code
-                  </>
-                )}
+              <Button onClick={handleCopyInviteCode} className="w-full" variant={copied ? "default" : "secondary"}>
+                {copied ? <><Check className="h-4 w-4 mr-2" /> Copied!</> : <><Copy className="h-4 w-4 mr-2" /> Copy Code</>}
               </Button>
-              <Alert className="mt-4">
-                <AlertDescription>
-                  New members can enter this code when joining your family
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
         </DialogContent>
       </Dialog>
 
-      {/* Guide Dialog */}
       <Dialog open={showDialog === "guide"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Quick Guide</DialogTitle>
-            <DialogDescription>
-              Learn how to use KharchaPal effectively
-            </DialogDescription>
           </DialogHeader>
           <QuickGuide />
         </DialogContent>
       </Dialog>
 
-      {/* About App Dialog */}
       <Dialog open={showDialog === "about"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader className="text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary to-tertiary flex items-center justify-center text-4xl">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-3xl text-white shadow-lg">
               ✨
             </div>
             <DialogTitle className="text-2xl">KharchaPal</DialogTitle>
-            <DialogDescription className="text-base">
-              Your simple household expense tracker
-            </DialogDescription>
+            <DialogDescription>Simple household expense tracker</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 text-center">
-            <div className="bg-gradient-to-r from-primary/10 to-tertiary/10 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-primary mb-2">Developed by</h3>
-              <p className="text-xl font-bold text-on-primary-container">Nitesh Jha</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                I’m Nitesh Jha, a UI/UX Designer who uses AI extensively to plan, design, and develop mobile applications with high speed and clarity. I follow a structured product development approach where every idea begins with a PRD (Product Requirement Document). Using AI tools, I convert the PRD into task lists, flows, wireframes, and development-ready assets, ensuring that the entire process—from concept to a fully functional mobile app—becomes smooth, fast, and extremely efficient.
-
-                My workflow is simple and scalable:
-
-                Create the PRD – Define the problem, goals, features, user journeys, and success metrics.
-
-                Break It Into Tasks Using AI – Convert the PRD into atomic tasks for design, development, and testing.
-
-                Generate User Flows & Wireframes – Use AI models to instantly create low-fidelity and high-fidelity screens.
-
-                Build the App With AI Agents – Transform the design into a working PWA, Android APK, or iOS app using another AI tool.
-
-                Validate & Iterate – Run automated validation flows and refine based on feedback.
-
-                I combine design thinking with AI automation to build apps faster than traditional methods—while still maintaining clarity, structure, and user experience.
-              </p>
+            <div className="bg-muted/50 p-4 rounded-xl border">
+              <p className="font-medium text-primary">Developed by Nitesh Jha</p>
+              <p className="text-xs text-muted-foreground mt-1">UI/UX Designer & AI Developer</p>
             </div>
-
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  window.open('https://www.linkedin.com/in/nitesh-jha-2021/', '_blank');
-                }}
-              >
-                <Users className="h-4 w-4 mr-2" />
+              <Button variant="outline" className="flex-1" onClick={() => window.open('https://www.linkedin.com/in/nitesh-jha-2021/', '_blank')}>
                 LinkedIn
               </Button>
-              <Button
-                onClick={() => {
-                  const subject = encodeURIComponent('Feedback: KharchaPal App');
-                  const body = encodeURIComponent(`Hi Nitesh,\n\nI wanted to share some feedback about KharchaPal:\n\n[Please share your suggestions, feedback, or any issues you encountered]\n\n- App version: 1.0.0\n- Family: ${currentFamily?.name || 'Not set'}\n\nThank you!`);
-                  window.open(`mailto:niteshjha.uiux@yahoo.com subject=${subject}&body=${body}`);
-                }}
-                className="flex-1"
-              >
-                💬 Feedback
+              <Button className="flex-1" onClick={() => window.open(`mailto:niteshjha.uiux@yahoo.com?subject=KharchaPal Feedback`, '_blank')}>
+                Feedback
               </Button>
-            </div>
-
-            <div className="text-center space-y-2">
-              <p className="text-xs text-muted-foreground">
-                If you have time, your suggestions are helpful for improving the app.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                App Version 1.0.0
-              </p>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog */}
       <Dialog open={showDialog === "settings"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Family Settings</DialogTitle>
-            <DialogDescription>
-              Manage your family preferences and members
-            </DialogDescription>
           </DialogHeader>
           <FamilySettings />
         </DialogContent>
       </Dialog>
 
-      {/* Categories Dialog */}
       <Dialog open={showDialog === "categories"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Categories</DialogTitle>
-            <DialogDescription>
-              Add or remove custom categories
-            </DialogDescription>
           </DialogHeader>
           <CategorySettings />
         </DialogContent>
       </Dialog>
 
-      {/* Subscriptions Dialog */}
       <Dialog open={showDialog === "subscriptions"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <RecurringTransactionsList />
         </DialogContent>
       </Dialog>
 
-      {/* Add Budget Dialog */}
-      <AddBudgetDialog open={showAddBudget} onClose={() => setShowAddBudget(false)} />
-
-      {/* Add Account Dialog */}
-      <AddAccountDialog open={showAddAccount} onClose={() => setShowAddAccount(false)} />
-
-      {/* Add Goal Dialog */}
-      <AddGoalDialog open={showAddGoal} onClose={() => setShowAddGoal(false)} />
-
-      {/* Add Debt Dialog */}
-      <AddDebtDialog open={showAddDebt} onClose={() => setShowAddDebt(false)} />
-
-      {/* Language Dialog */}
       <Dialog open={showDialog === "language"} onOpenChange={() => setShowDialog(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>{t('select_language')}</DialogTitle>
-            <DialogDescription>Choose your preferred language</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             {[
@@ -573,7 +565,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
               <Button
                 key={lang.code}
                 variant={language === lang.code ? "default" : "outline"}
-                className="justify-between"
+                className="justify-between h-12"
                 onClick={() => {
                   setLanguage(lang.code as Language);
                   setShowDialog(null);
@@ -587,11 +579,11 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Privacy Policy */}
-      <PrivacyPolicy
-        open={showPrivacyPolicy}
-        onClose={() => setShowPrivacyPolicy(false)}
-      />
+      <AddBudgetDialog open={showAddBudget} onClose={() => setShowAddBudget(false)} />
+      <AddAccountDialog open={showAddAccount} onClose={() => setShowAddAccount(false)} />
+      <AddGoalDialog open={showAddGoal} onClose={() => setShowAddGoal(false)} />
+      <AddDebtDialog open={showAddDebt} onClose={() => setShowAddDebt(false)} />
+      <PrivacyPolicy open={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
     </div>
   );
 }

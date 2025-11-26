@@ -84,8 +84,47 @@ function parsePasteData(text: string): ParsedTransaction[] {
   for (const line of lines) {
     // Try to parse: "250 Zomato" or "₹500 Uber" or "Uber 500"
     // Also handle "Paid to Zomato ₹250"
+    // Also handle CSV-like: "200, shop, food, 2025-11-10"
     const cleanLine = line.replace(/paid to/i, '').trim();
 
+    // Check if it's comma-separated (CSV-like)
+    if (cleanLine.includes(',')) {
+      const parts = cleanLine.split(',').map(p => p.trim());
+      if (parts.length >= 2) {
+        // Try to find amount and merchant
+        let amount: number | null = null;
+        let merchant = '';
+        let category = '';
+        let date = '';
+
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i].replace(/[₹,]/g, '');
+          const num = parseFloat(part);
+
+          if (!isNaN(num) && num > 0 && amount === null) {
+            amount = num;
+          } else if (part && !merchant && isNaN(parseFloat(part))) {
+            merchant = part;
+          } else if (part && !category && isNaN(parseFloat(part)) && merchant) {
+            category = part;
+          } else if (part && part.match(/\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/)) {
+            date = part;
+          }
+        }
+
+        if (amount && merchant) {
+          transactions.push({
+            amount,
+            merchant,
+            category: category || detectCategory(merchant),
+            date: date || undefined
+          });
+          continue;
+        }
+      }
+    }
+
+    // Try regular patterns
     const patterns = [
       /^₹?\s*(\d+(?:\.\d{2})?)\s+(.+)$/i, // 500 Uber
       /^(.+?)\s+₹?\s*(\d+(?:\.\d{2})?)$/i, // Uber 500
@@ -145,31 +184,59 @@ function parseJSONData(text: string): ParsedTransaction[] {
 
 function parseCSVData(text: string): ParsedTransaction[] {
   const lines = text.split('\n').filter(line => line.trim());
-  if (lines.length < 2) return [];
+  if (lines.length < 1) return [];
 
   const transactions: ParsedTransaction[] = [];
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
 
-  const amountIndex = headers.findIndex(h => h.includes('amount') || h.includes('debit') || h.includes('withdrawal'));
-  const merchantIndex = headers.findIndex(h => h.includes('merchant') || h.includes('description') || h.includes('narration') || h.includes('remarks') || h.includes('name'));
-  const categoryIndex = headers.findIndex(h => h.includes('category'));
-  const dateIndex = headers.findIndex(h => h.includes('date'));
+  // Check if first line looks like headers
+  const firstLine = lines[0].toLowerCase();
+  const hasHeaders = firstLine.includes('amount') || firstLine.includes('merchant') ||
+    firstLine.includes('description') || firstLine.includes('category');
 
-  if (amountIndex === -1 || merchantIndex === -1) return [];
+  if (hasHeaders && lines.length < 2) return [];
 
-  for (let i = 1; i < lines.length; i++) {
-    // Handle quoted CSV values properly-ish (simple split for now, but better than before)
-    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+  const startIndex = hasHeaders ? 1 : 0;
 
-    if (values.length > Math.max(amountIndex, merchantIndex)) {
-      const amountStr = values[amountIndex].replace(/[₹,]/g, '');
-      const amount = parseFloat(amountStr);
-      const merchant = values[merchantIndex];
-      const category = categoryIndex !== -1 ? values[categoryIndex] : detectCategory(merchant);
-      const date = dateIndex !== -1 ? values[dateIndex] : undefined;
+  if (hasHeaders) {
+    // Parse with headers
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
 
-      if (!isNaN(amount) && merchant && amount > 0) { // Only import debits (positive amounts usually, but check logic)
-        transactions.push({ amount, merchant, category, date });
+    const amountIndex = headers.findIndex(h => h.includes('amount') || h.includes('debit') || h.includes('withdrawal'));
+    const merchantIndex = headers.findIndex(h => h.includes('merchant') || h.includes('description') || h.includes('narration') || h.includes('remarks') || h.includes('name'));
+    const categoryIndex = headers.findIndex(h => h.includes('category'));
+    const dateIndex = headers.findIndex(h => h.includes('date'));
+
+    if (amountIndex === -1 || merchantIndex === -1) return [];
+
+    for (let i = startIndex; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+
+      if (values.length > Math.max(amountIndex, merchantIndex)) {
+        const amountStr = values[amountIndex].replace(/[₹,]/g, '');
+        const amount = parseFloat(amountStr);
+        const merchant = values[merchantIndex];
+        const category = categoryIndex !== -1 ? values[categoryIndex] : detectCategory(merchant);
+        const date = dateIndex !== -1 ? values[dateIndex] : undefined;
+
+        if (!isNaN(amount) && merchant && amount > 0) {
+          transactions.push({ amount, merchant, category, date });
+        }
+      }
+    }
+  } else {
+    // Parse without headers - assume format: amount, merchant, [category], [date]
+    for (let i = startIndex; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/['"₹]/g, ''));
+
+      if (values.length >= 2) {
+        const amount = parseFloat(values[0]);
+        const merchant = values[1];
+        const category = values.length > 2 && values[2] ? values[2] : detectCategory(merchant);
+        const date = values.length > 3 && values[3] ? values[3] : undefined;
+
+        if (!isNaN(amount) && merchant && amount > 0) {
+          transactions.push({ amount, merchant, category, date });
+        }
       }
     }
   }
@@ -342,7 +409,7 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
             {showPreview && (
@@ -365,7 +432,7 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
         </DialogHeader>
 
         {!showPreview ? (
-          <div className="space-y-4 flex-1 overflow-y-auto">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
             {/* Info Alert */}
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -375,7 +442,7 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
             </Alert>
 
             {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="pdf">PDF</TabsTrigger>
                 <TabsTrigger value="paste">Paste</TabsTrigger>
@@ -493,7 +560,7 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
             </Tabs>
           </div>
         ) : (
-          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          <div className="space-y-4 flex-1 overflow-y-auto flex flex-col pr-1">
             {/* Summary */}
             <div className="bg-primary-container/20 border-2 border-primary-container rounded-xl p-4">
               <div className="flex items-center justify-between">

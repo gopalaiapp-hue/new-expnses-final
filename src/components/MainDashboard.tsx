@@ -28,7 +28,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 
 
-import { DebtList } from "./debt/DebtList";
 import { ArrowLeft } from "lucide-react";
 import { QuickActions } from "./dashboard/QuickActions";
 
@@ -193,11 +192,7 @@ export function MainDashboard() {
             </div>
 
             <BudgetSummaryWidget />
-<<<<<<< HEAD
-            <DebtSummaryWidget onClick={() => setShowDebtDialog(true)} />
-=======
             <DebtSummaryWidget onShowHistory={() => setShowDebtHistory(true)} />
->>>>>>> origin/main
 
             <DashboardStats />
 

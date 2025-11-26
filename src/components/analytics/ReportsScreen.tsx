@@ -31,39 +31,34 @@ const PAYMENT_COLORS = {
 };
 
 export function ReportsScreen({ onBack }: ReportsScreenProps) {
-<<<<<<< HEAD
-  const { expenses, income, debts, budgets, goals } = useApp();
+  const { expenses, income, debts, budgets, goals, accounts, currentFamily, currentUser } = useApp();
 
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
   });
-=======
-  const { expenses, debts, goals, accounts, currentFamily, currentUser } = useApp();
->>>>>>> origin/main
 
   // Calculate summary stats
   const summaryStats = useMemo(() => {
-    const totalSpent = expenses.reduce((sum, exp) => sum + exp.total_amount, 0);
-    const transactionCount = expenses.length;
+    // Filtered expenses by date range
+    let filteredExpenses = expenses;
+    if (dateRange.from) {
+      filteredExpenses = filteredExpenses.filter((e) => new Date(e.date) >= dateRange.from!);
+    }
+    if (dateRange.to) {
+      filteredExpenses = filteredExpenses.filter((e) => new Date(e.date) <= dateRange.to!);
+    }
+
+    const totalSpent = filteredExpenses.reduce((sum, exp) => sum + exp.total_amount, 0);
+    const transactionCount = filteredExpenses.length;
     const averageTransaction = transactionCount > 0 ? totalSpent / transactionCount : 0;
 
     // Get unique categories count
-    const categories = new Set(expenses.map(exp => exp.category));
+    const categories = new Set(filteredExpenses.map(exp => exp.category));
 
     return {
       totalSpent,
-      // Filtered expenses by date range
-      const filteredExpenses = useMemo(() => {
-        let filtered = expenses;
-        if (dateRange.from) {
-          filtered = filtered.filter((e) => new Date(e.date) >= dateRange.from!);
-        }
-        if (dateRange.to) {
-          filtered = filtered.filter((e) => new Date(e.date) <= dateRange.to!);
-        }
-        return filtered;
-      }, [expenses, dateRange]);
+      filteredExpenses,
       transactionCount,
       averageTransaction,
       categoriesUsed: categories.size
@@ -124,18 +119,12 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
     expenses.forEach(exp => {
       exp.payment_lines.forEach(line => {
         // Determine payment method from account_id
-<<<<<<< HEAD
-        const method = line.account_id === "cash" ? "cash"
-          : line.account_id === "upi" ? "upi"
-            : line.account_id?.includes("card") ? "card"
-              : "bank";
-=======
+        // Determine payment method from account_id
         let method = "other";
-        if (line.account_id === "cash") method = "cash";
-        else if (line.account_id === "upi") method = "upi";
-        else if (line.account_id && line.account_id.includes("card")) method = "card";
-        else if (line.account_id) method = "bank";
->>>>>>> origin/main
+        if (line.account_id === "cash" || line.method === "cash") method = "cash";
+        else if (line.account_id === "upi" || line.method === "upi") method = "upi";
+        else if ((line.account_id && line.account_id.includes("card")) || line.method === "card") method = "card";
+        else if (line.account_id || line.method === "bank") method = "bank";
 
         if (!methodTotals[method]) {
           methodTotals[method] = 0;

@@ -2,7 +2,7 @@
 
 :root {
   --font-size: 16px;
-  
+
   /* Google Stitch / Material Design 3 Color Palette */
   /* Based on Material Theme Builder with Purple primary */
   --background: #FFFBFE;
@@ -11,35 +11,35 @@
   --card-foreground: #1D1B20;
   --popover: #FFFFFF;
   --popover-foreground: #1D1B20;
-  
+
   /* Primary - Modern Blue (Inspired by top finance apps) */
   --primary: #4F46E5;
   --primary-foreground: #FFFFFF;
   --primary-container: #EEF2FF;
   --on-primary-container: #1E1B4B;
-  
+
   /* Secondary - Neutral Violet */
   --secondary: #625B71;
   --secondary-foreground: #FFFFFF;
   --secondary-container: #E8DEF8;
   --on-secondary-container: #1D192B;
-  
+
   /* Tertiary - Rose for emphasis */
   --tertiary: #7D5260;
   --tertiary-foreground: #FFFFFF;
   --tertiary-container: #FFD8E4;
   --on-tertiary-container: #31111D;
-  
+
   /* Surface & Neutral tones */
   --surface: #FFFBFE;
   --surface-variant: #E7E0EC;
   --on-surface: #1D1B20;
   --on-surface-variant: #49454F;
-  
+
   /* Outlined elements */
   --outline: #79747E;
   --outline-variant: #CAC4D0;
-  
+
   /* UI Component colors */
   --muted: #E7E0EC;
   --muted-foreground: #49454F;
@@ -50,39 +50,39 @@
   --input-background: #F4F0F7;
   --switch-background: #79747E;
   --ring: #6750A4;
-  
+
   /* Error states - Softer red for expenses */
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --error-container: #FEE2E2;
   --on-error-container: #7F1D1D;
-  
+
   /* Success states - Vibrant green for income/positive */
   --success: #10B981;
   --success-container: #D1FAE5;
   --on-success-container: #064E3B;
-  
+
   /* Charts - Modern palette for analytics */
   --chart-1: #4F46E5;
   --chart-2: #10B981;
   --chart-3: #F59E0B;
   --chart-4: #EF4444;
   --chart-5: #8B5CF6;
-  
+
   /* Material 3 radius (16dp) */
   --radius: 1rem;
-  
+
   /* Elevation shadows - Material 3 */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-2: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-3: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
   --shadow-4: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
   --shadow-5: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
-  
+
   /* Typography weights */
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  
+
   /* Sidebar */
   --sidebar: #FFFFFF;
   --sidebar-foreground: #1D1B20;
@@ -102,35 +102,35 @@
   --card-foreground: #E6E0E9;
   --popover: #2B2930;
   --popover-foreground: #E6E0E9;
-  
+
   /* Primary - Modern Blue (Dark mode) */
   --primary: #818CF8;
   --primary-foreground: #1E1B4B;
   --primary-container: #3730A3;
   --on-primary-container: #EEF2FF;
-  
+
   /* Secondary */
   --secondary: #CCC2DC;
   --secondary-foreground: #332D41;
   --secondary-container: #4A4458;
   --on-secondary-container: #E8DEF8;
-  
+
   /* Tertiary */
   --tertiary: #EFB8C8;
   --tertiary-foreground: #492532;
   --tertiary-container: #633B48;
   --on-tertiary-container: #FFD8E4;
-  
+
   /* Surface */
   --surface: #1D1B20;
   --surface-variant: #49454F;
   --on-surface: #E6E0E9;
   --on-surface-variant: #CAC4D0;
-  
+
   /* Outlined */
   --outline: #938F99;
   --outline-variant: #49454F;
-  
+
   /* UI Components */
   --muted: #49454F;
   --muted-foreground: #CAC4D0;
@@ -141,32 +141,32 @@
   --input-background: #2B2930;
   --switch-background: #938F99;
   --ring: #D0BCFF;
-  
+
   /* Error (Dark mode) */
   --destructive: #F87171;
   --destructive-foreground: #7F1D1D;
   --error-container: #991B1B;
   --on-error-container: #FEE2E2;
-  
+
   /* Success (Dark mode) */
   --success: #34D399;
   --success-container: #065F46;
   --on-success-container: #D1FAE5;
-  
+
   /* Charts (Dark mode) */
   --chart-1: #818CF8;
   --chart-2: #34D399;
   --chart-3: #FBBF24;
   --chart-4: #F87171;
   --chart-5: #A78BFA;
-  
+
   /* Shadows (darker in dark mode) */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.24);
   --shadow-3: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.24);
   --shadow-4: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.2);
   --shadow-5: 0 20px 25px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.16);
-  
+
   /* Sidebar */
   --sidebar: #2B2930;
   --sidebar-foreground: #E6E0E9;
@@ -223,15 +223,20 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  
+
   /* Material 3 Radius System (8dp grid) */
-  --radius-xs: 0.25rem;   /* 4px */
-  --radius-sm: 0.5rem;    /* 8px */
-  --radius-md: 0.75rem;   /* 12px */
-  --radius-lg: 1rem;      /* 16px - Material 3 default */
-  --radius-xl: 1.75rem;   /* 28px */
+  --radius-xs: 0.25rem;
+  /* 4px */
+  --radius-sm: 0.5rem;
+  /* 8px */
+  --radius-md: 0.75rem;
+  /* 12px */
+  --radius-lg: 1rem;
+  /* 16px - Material 3 default */
+  --radius-xl: 1.75rem;
+  /* 28px */
   --radius-full: 9999px;
-  
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -285,18 +290,23 @@
   .elevation-0 {
     box-shadow: none;
   }
+
   .elevation-1 {
     box-shadow: var(--shadow-1);
   }
+
   .elevation-2 {
     box-shadow: var(--shadow-2);
   }
+
   .elevation-3 {
     box-shadow: var(--shadow-3);
   }
+
   .elevation-4 {
     box-shadow: var(--shadow-4);
   }
+
   .elevation-5 {
     box-shadow: var(--shadow-5);
   }
@@ -305,18 +315,23 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
   .pl-safe {
     padding-left: env(safe-area-inset-left);
   }
+
   .pr-safe {
     padding-right: env(safe-area-inset-right);
   }
+
   .top-safe {
     top: env(safe-area-inset-top);
   }
+
   .bottom-safe {
     bottom: env(safe-area-inset-bottom);
   }
@@ -386,9 +401,11 @@ html {
   0% {
     transform: translateX(-100%);
   }
+
   50% {
     transform: translateX(0%);
   }
+
   100% {
     transform: translateX(100%);
   }
