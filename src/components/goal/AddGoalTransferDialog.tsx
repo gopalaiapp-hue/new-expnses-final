@@ -49,13 +49,18 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       return;
     }
 
+    if (paymentMethod !== "cash" && !fromAccountId) {
+      toast.error("Please select a source account");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Create the transfer record
       const transfer: GoalTransfer = {
         id: generateId(),
         goal_id: goal.id,
-        from_account_id: fromAccountId || undefined,
+        from_account_id: paymentMethod === "cash" ? undefined : fromAccountId,
         amount: transferAmount,
         transfer_type: "manual",
         transfer_method: paymentMethod,
@@ -69,18 +74,12 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       await addGoalTransfer(transfer);
 
       // Create a corresponding expense record
-      // Only if a specific account is selected or it's a cash/upi payment that implies spending
-      // If it's just a transfer within accounts (e.g. Bank to Goal), it might be a transfer, not an expense.
-      // But the user requirement says "Goals adding money and reflection in expenses".
-      // So we will create an expense.
-
       const paymentLine: PaymentLine = {
         id: generateId(),
         method: paymentMethod,
         amount: transferAmount,
         payer_user_id: currentUser.id,
-        account_id: fromAccountId || "cash", // Default to cash if no account selected, or maybe we should enforce account selection?
-        // If fromAccountId is empty, it might mean "Cash" or external source.
+        account_id: paymentMethod === "cash" ? undefined : fromAccountId,
       };
 
       const newExpense: Expense = {
@@ -166,11 +165,18 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       description: "Digital wallet or e-payment",
       color: "from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20",
       borderColor: "border-amber-200 dark:border-amber-800"
+    },
+    borrowed: {
+      icon: "🤝",
+      label: "Borrowed",
+      description: "Borrowed from someone",
+      color: "from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20",
+      borderColor: "border-indigo-200 dark:border-indigo-800"
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => !isOpen && handleClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
@@ -245,8 +251,8 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
                   key={method}
                   onClick={() => setPaymentMethod(method)}
                   className={`p-3 rounded-xl border-2 transition-all ${paymentMethod === method
-                      ? `bg-gradient-to-br ${info.color} border-primary shadow-md scale-105`
-                      : `bg-white dark:bg-slate-950 border-border hover:border-primary/50`
+                    ? `bg-gradient-to-br ${info.color} border-primary shadow-md scale-105`
+                    : `bg-white dark:bg-slate-950 border-border hover:border-primary/50`
                     }`}
                 >
                   <div className="text-3xl mb-2">{info.icon}</div>
@@ -265,29 +271,36 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
             )}
           </div>
 
-          {/* From Account */}
+          {/* From Account / Source */}
           <div className="space-y-2">
-            <Label htmlFor="fromAccount">Which Account? (optional)</Label>
-            <Select value={fromAccountId} onValueChange={setFromAccountId}>
-              <SelectTrigger id="fromAccount" className="h-11">
-                <SelectValue placeholder="Select account..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No specific account</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name} - {formatCurrency(account.current_balance)}
-                  </SelectItem>
-                ))}
-                {accounts.length === 0 && (
-                  <>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="fromAccount">Source</Label>
+            {paymentMethod === "cash" ? (
+              <div className="p-3 bg-muted/50 rounded-lg border border-muted flex items-center gap-2">
+                <span className="text-xl">💵</span>
+                <div>
+                  <p className="font-medium">Cash Payment</p>
+                  <p className="text-xs text-muted-foreground">Amount will be added to goal directly</p>
+                </div>
+              </div>
+            ) : (
+              <Select value={fromAccountId} onValueChange={setFromAccountId}>
+                <SelectTrigger id="fromAccount" className="h-11">
+                  <SelectValue placeholder="Select Bank Account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} - {formatCurrency(account.current_balance)}
+                    </SelectItem>
+                  ))}
+                  {accounts.length === 0 && (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      No bank accounts found. Please add one in Settings.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Notes */}

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { useApp } from "../../lib/store";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { TrendingUp, User } from "lucide-react";
 import { type FilterState } from "../transaction/TransactionFilterDialog";
+import { Income } from "../../types";
+import { IncomeDetailSheet } from "./IncomeDetailSheet";
 
 interface IncomeListProps {
   filters?: FilterState;
@@ -11,16 +14,17 @@ interface IncomeListProps {
 
 export function IncomeList({ filters }: IncomeListProps) {
   const { income, users, currentUser } = useApp();
+  const [selectedIncome, setSelectedIncome] = useState<Income | null>(null);
 
   // Apply filters
   let filteredIncome = income;
-  
+
   if (filters) {
     filteredIncome = income.filter((inc) => {
       // Search filter (by source or notes)
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           inc.source.toLowerCase().includes(query) ||
           (inc.notes && inc.notes.toLowerCase().includes(query));
         if (!matchesSearch) return false;
@@ -30,7 +34,7 @@ export function IncomeList({ filters }: IncomeListProps) {
       if (filters.timeRange !== "all") {
         const today = new Date();
         const incomeDate = new Date(inc.date);
-        
+
         switch (filters.timeRange) {
           case "today":
             if (incomeDate.toDateString() !== today.toDateString()) return false;
@@ -58,13 +62,13 @@ export function IncomeList({ filters }: IncomeListProps) {
         <CardContent className="py-12 text-center">
           <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">
-            {filters?.searchQuery || (filters?.timeRange && filters.timeRange !== "all") 
-              ? "No income matches your filters" 
+            {filters?.searchQuery || (filters?.timeRange && filters.timeRange !== "all")
+              ? "No income matches your filters"
               : "No income recorded yet"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            {filters?.searchQuery || (filters?.timeRange && filters.timeRange !== "all") 
-              ? "Try adjusting your filters" 
+            {filters?.searchQuery || (filters?.timeRange && filters.timeRange !== "all")
+              ? "Try adjusting your filters"
               : "Add your first income to start tracking"}
           </p>
         </CardContent>
@@ -79,7 +83,11 @@ export function IncomeList({ filters }: IncomeListProps) {
         const isOwn = inc.created_by === currentUser?.id;
 
         return (
-          <Card key={inc.id} className="hover:shadow-md transition-shadow">
+          <Card
+            key={inc.id}
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setSelectedIncome(inc)}
+          >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -107,6 +115,14 @@ export function IncomeList({ filters }: IncomeListProps) {
           </Card>
         );
       })}
+
+      {selectedIncome && (
+        <IncomeDetailSheet
+          income={selectedIncome}
+          open={!!selectedIncome}
+          onClose={() => setSelectedIncome(null)}
+        />
+      )}
     </div>
   );
 }

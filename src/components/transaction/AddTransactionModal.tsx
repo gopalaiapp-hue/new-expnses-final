@@ -9,11 +9,11 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { CalendarIcon, Upload, X, Plus, ArrowLeft, HandCoins, TrendingDown, TrendingUp } from "lucide-react";
+import { CalendarIcon, Upload, X, Plus, ArrowLeft, HandCoins, TrendingDown, TrendingUp, Camera } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense, Income, PaymentLine, DebtRecord, TransactionType } from "../../types";
-import { generateId, formatDate, validatePaymentLines, formatCurrency } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { generateId, formatDate, validatePaymentLines, formatCurrency, cn } from "../../lib/utils";
+import { toast } from "sonner";
 import { PaymentLineRow } from "./PaymentLineRow";
 import { VisualCategorySelect } from "./VisualCategorySelect";
 import { ReceiptUploader } from "./ReceiptUploader";
@@ -25,7 +25,7 @@ interface AddTransactionModalProps {
 }
 
 export function AddTransactionModal({ open, onClose, defaultType = "expense" }: AddTransactionModalProps) {
-  const { currentUser, currentFamily, users, addExpense, addIncome, addDebt } = useApp();
+  const { currentUser, currentFamily, users, addExpense, addIncome, addDebt, budgets, expenses } = useApp();
   const [transactionType, setTransactionType] = useState<TransactionType>(defaultType);
   const [totalAmount, setTotalAmount] = useState("");
   const [category, setCategory] = useState<string>("");
@@ -112,20 +112,45 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         const finalPaymentLines: PaymentLine[] = useSplitPayment
           ? (paymentLines as PaymentLine[])
           : [
-              {
-                id: generateId(),
-                method: paymentMethod as any,
-                amount: amount,
-                payer_user_id: paidBy,
-                meta: borrowedFrom ? { borrowed_from: borrowedFrom } : undefined,
-              },
-            ];
+            {
+              id: generateId(),
+              method: paymentMethod as any,
+              amount: amount,
+              payer_user_id: paidBy,
+              meta: borrowedFrom ? { borrowed_from: borrowedFrom } : undefined,
+            },
+          ];
 
         // Validate payment lines
         const validation = validatePaymentLines(amount, finalPaymentLines);
         if (!validation.valid) {
           toast.error(validation.error);
           return;
+        }
+
+        // Check Budget
+        if (isExpense && category) {
+          const budget = budgets.find(b => b.category === category && b.period === "monthly"); // Assuming monthly for now
+          if (budget) {
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+
+            const categoryExpenses = expenses.filter(e =>
+              e.category === category &&
+              new Date(e.date).getMonth() === currentMonth &&
+              new Date(e.date).getFullYear() === currentYear
+            );
+
+            const totalSpent = categoryExpenses.reduce((sum, e) => sum + e.total_amount, 0);
+            const newTotal = totalSpent + amount;
+            const percentage = (newTotal / budget.amount) * 100;
+
+            if (percentage > 100) {
+              toast.error(`Budget Exceeded! You've spent ${percentage.toFixed(0)}% of your ${category} budget.`);
+            } else if (percentage >= 80) {
+              toast.warning(`Warning: You've used ${percentage.toFixed(0)}% of your ${category} budget.`);
+            }
+          }
         }
 
         const expense: Expense = {
@@ -160,6 +185,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
               status: "open",
               created_at: new Date().toISOString(),
               linked_expense_id: expense.id,
+              reminder_shown: false,
             };
             await addDebt(debt);
           }
@@ -221,11 +247,10 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
     <Sheet open={open} onOpenChange={(open) => !open && handleClose()}>
       <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
         {/* Header with Back Button - Color coded */}
-        <div className={`sticky top-0 z-10 border-b px-4 py-3 transition-colors ${
-          isExpense 
-            ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900" 
-            : "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
-        }`}>
+        <div className={`sticky top-0 z-10 border-b px-4 py-3 transition-colors ${isExpense
+          ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
+          : "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
+          }`}>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Button
@@ -252,15 +277,15 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </div>
             <Tabs value={transactionType} onValueChange={(v) => setTransactionType(v as TransactionType)} className="w-full">
               <TabsList className="grid w-full grid-cols-2 h-10 p-1">
-                <TabsTrigger 
-                  value="expense" 
+                <TabsTrigger
+                  value="expense"
                   className="text-xs data-[state=active]:bg-red-500 data-[state=active]:text-white"
                 >
                   <TrendingDown className="h-3 w-3 mr-1" />
                   Expense
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="income" 
+                <TabsTrigger
+                  value="income"
                   className="text-xs data-[state=active]:bg-green-500 data-[state=active]:text-white"
                 >
                   <TrendingUp className="h-3 w-3 mr-1" />
@@ -475,21 +500,15 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                           {formatCurrency(parseFloat(totalAmount) || 0)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Split sum:</span>
-                        <span
-                          className={
-                            Math.abs(
-                              (parseFloat(totalAmount) || 0) -
-                                paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
-                            ) < 0.01
-                              ? "font-medium text-green-600"
-                              : "font-medium text-destructive"
-                          }
-                        >
-                          {formatCurrency(
-                            paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
-                          )}
+                      <div className="flex justify-between mt-1">
+                        <span className="text-muted-foreground">Allocated:</span>
+                        <span className={cn(
+                          "font-medium",
+                          Math.abs(parseFloat(totalAmount) - paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)) < 0.01
+                            ? "text-green-600"
+                            : "text-destructive"
+                        )}>
+                          {formatCurrency(paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0))}
                         </span>
                       </div>
                     </div>
@@ -499,10 +518,48 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </>
           )}
 
-          {/* Receipt Uploader */}
-          <div className="space-y-2">
-            <Label>Attach Receipt (optional)</Label>
-            <ReceiptUploader receipts={receipts} onChange={setReceipts} />
+          {/* Receipt Upload */}
+          <div className="space-y-3">
+            <Label>Receipts</Label>
+            <div className="flex flex-wrap gap-3">
+              {receipts.map((receipt, index) => (
+                <div key={index} className="relative h-20 w-20 rounded-lg overflow-hidden border border-outline">
+                  <img src={receipt} alt="Receipt" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setReceipts(receipts.filter((_, i) => i !== index))}
+                    className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="h-20 w-20 border-dashed border-2 flex flex-col gap-1 items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                onClick={() => document.getElementById('receipt-upload')?.click()}
+              >
+                <Camera className="h-6 w-6" />
+                <span className="text-xs">Add</span>
+              </Button>
+              <input
+                id="receipt-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setReceipts([...receipts, reader.result as string]);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
           </div>
 
           {/* Notes */}
@@ -536,14 +593,13 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
               <Button variant="outline" onClick={handleClose} className="flex-1" size="lg">
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={isSubmitting} 
-                className={`flex-1 ${
-                  isExpense 
-                    ? "bg-red-600 hover:bg-red-700" 
-                    : "bg-green-600 hover:bg-green-700"
-                } text-white`}
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className={`flex-1 ${isExpense
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-green-600 hover:bg-green-700"
+                  } text-white`}
                 size="lg"
               >
                 {isSubmitting ? "Saving..." : `Save ${isExpense ? "Expense" : "Income"}`}

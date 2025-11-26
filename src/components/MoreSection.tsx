@@ -19,7 +19,8 @@ import {
   Wallet,
   Languages,
   Tag,
-  RefreshCw
+  RefreshCw,
+  Shield
 } from "lucide-react";
 import { useApp } from "../lib/store";
 import { useLanguage, Language } from "../lib/language";
@@ -41,6 +42,7 @@ import { GoalList } from "./goal/GoalList";
 import { AddGoalDialog } from "./goal/AddGoalDialog";
 import { AddDebtDialog } from "./debt/AddDebtDialog";
 import { toast } from "sonner";
+import { PrivacyPolicy } from "./settings/PrivacyPolicy";
 
 interface MoreSectionProps {
   onViewChange?: (view: string) => void;
@@ -56,6 +58,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   // Count active items
   const activeDebts = debts.filter(d => d.status === "open");
@@ -226,6 +229,14 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
       iconColor: "text-blue-600",
       badge: language.toUpperCase(),
       onClick: () => setShowDialog("language"),
+    },
+    {
+      id: "privacy",
+      title: "Privacy Policy",
+      description: "How we handle your data",
+      icon: Shield,
+      iconColor: "text-green-600",
+      onClick: () => setShowPrivacyPolicy(true),
     },
   ];
 
@@ -625,6 +636,12 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Privacy Policy */}
+      <PrivacyPolicy
+        open={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
+      />
     </div>
   );
 }

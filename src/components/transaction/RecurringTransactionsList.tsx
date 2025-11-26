@@ -22,6 +22,8 @@ export function RecurringTransactionsList() {
     const [category, setCategory] = useState("");
     const [frequency, setFrequency] = useState<RecurringFrequency>("monthly");
     const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [autoDeduct, setAutoDeduct] = useState(false);
+    const [notify, setNotify] = useState(false);
 
     const handleAddTransaction = async () => {
         if (!description || !amount || !category || !currentFamily || !currentUser) {
@@ -41,10 +43,8 @@ export function RecurringTransactionsList() {
                     description,
                     frequency,
                     start_date: startDate,
-                    // Recalculate next due date if start date changed? 
-                    // For simplicity, we keep the logic simple or reset it. 
-                    // Ideally, we should check if start date changed significantly.
-                    // But let's just update the basic fields.
+                    auto_deduct: autoDeduct,
+                    notify: notify,
                 };
 
                 await updateRecurringTransaction(updatedTransaction);
@@ -63,6 +63,8 @@ export function RecurringTransactionsList() {
                     is_active: true,
                     created_by: currentUser.id,
                     created_at: new Date().toISOString(),
+                    auto_deduct: autoDeduct,
+                    notify: notify,
                 };
                 await addRecurringTransaction(newTransaction);
                 toast.success("Recurring transaction added");
@@ -83,6 +85,8 @@ export function RecurringTransactionsList() {
         setCategory(transaction.category);
         setFrequency(transaction.frequency);
         setStartDate(transaction.start_date);
+        setAutoDeduct(transaction.auto_deduct || false);
+        setNotify(transaction.notify || false);
         setIsAddDialogOpen(true);
     };
 
@@ -105,6 +109,8 @@ export function RecurringTransactionsList() {
         setCategory("");
         setFrequency("monthly");
         setStartDate(format(new Date(), "yyyy-MM-dd"));
+        setAutoDeduct(false);
+        setNotify(false);
     };
 
     return (
@@ -182,11 +188,28 @@ export function RecurringTransactionsList() {
                             <div className="space-y-2">
                                 <Label htmlFor="startDate">Start Date</Label>
                                 <Input
-                                    id="startDate"
-                                    type="date"
-                                    value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                 />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="autoDeduct"
+                                    checked={autoDeduct}
+                                    onChange={(e) => setAutoDeduct(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <Label htmlFor="autoDeduct">Auto-deduct</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="notify"
+                                    checked={notify}
+                                    onChange={(e) => setNotify(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <Label htmlFor="notify">Notify 1 day before</Label>
                             </div>
                             <Button className="w-full" onClick={handleAddTransaction}>
                                 {editingId ? "Update" : "Save"} Recurring Transaction

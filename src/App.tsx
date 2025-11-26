@@ -10,6 +10,8 @@ import { Capacitor } from "@capacitor/core";
 import { Device } from "@capacitor/device";
 import { EdgeToEdge } from "@capawesome/capacitor-android-edge-to-edge-support";
 import { LanguageProvider } from "./lib/language";
+import { useRecurringTransactionProcessor } from "./hooks/useRecurringTransactionProcessor";
+import { useDailyBrief } from "./hooks/useDailyBrief";
 
 type OnboardingView = "welcome" | "create" | "join";
 
@@ -17,6 +19,10 @@ function AppContent() {
   const { currentUser, currentFamily, isLoading } = useApp();
   const [onboardingView, setOnboardingView] = useState<OnboardingView>("welcome");
   const [showTimeout, setShowTimeout] = useState(false);
+
+  // Initialize background processors
+  useRecurringTransactionProcessor();
+  useDailyBrief();
 
   // Configure StatusBar for mobile devices
   useEffect(() => {

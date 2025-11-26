@@ -185,7 +185,9 @@ export function PaymentLineRow({
                   <span className="flex items-center gap-2">
                     <span className="text-muted-foreground">from</span>
                     <span className="font-medium text-orange-600 dark:text-orange-400">
-                      {users.find((u) => u.id === line.meta?.borrowed_from)?.name || "someone"}
+                      {line.meta.borrowed_from === 'custom'
+                        ? (line.meta.borrowed_from_name || 'someone else')
+                        : (users.find((u) => u.id === line.meta?.borrowed_from)?.name || "someone")}
                     </span>
                   </span>
                 </SelectValue>
@@ -201,8 +203,32 @@ export function PaymentLineRow({
                       </span>
                     </SelectItem>
                   ))}
+                <SelectItem value="custom">
+                  <span className="flex items-center gap-2">
+                    <span className="text-muted-foreground">from</span>
+                    <span className="font-medium">Someone else (custom name)</span>
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Custom Name Input - Shows when "Someone else" is selected */}
+            {line.meta.borrowed_from === 'custom' && (
+              <div className="space-y-1">
+                <Label htmlFor={`custom-name-${line.id}`} className="text-xs text-orange-700 dark:text-orange-400">
+                  Enter person's name
+                </Label>
+                <Input
+                  id={`custom-name-${line.id}`}
+                  type="text"
+                  placeholder="e.g., John Doe"
+                  value={line.meta.borrowed_from_name || ''}
+                  onChange={(e) => onUpdate('meta', { ...line.meta, borrowed_from_name: e.target.value })}
+                  className="bg-background border-orange-300 dark:border-orange-800"
+                />
+              </div>
+            )}
+
             <p className="text-xs text-orange-700 dark:text-orange-400">
               An IOU will be created for ₹{line.amount?.toFixed(2) || "0.00"} when you save this transaction
             </p>

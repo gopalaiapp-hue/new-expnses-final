@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { ArrowLeft, TrendingUp, TrendingDown, Receipt, PieChart as PieChartIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import { useApp } from "../../lib/store";
+import { Income, DebtRecord, Budget, Goal } from "../../types";
 import { formatCurrency } from "../../lib/utils";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from "recharts";
 
@@ -30,11 +31,16 @@ const PAYMENT_COLORS = {
 };
 
 export function ReportsScreen({ onBack }: ReportsScreenProps) {
-  const { expenses } = useApp();
+  const { expenses, income, debts, budgets, goals } = useApp();
+
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
 
   // Calculate summary stats
   const summaryStats = useMemo(() => {
-    const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalSpent = expenses.reduce((sum, exp) => sum + exp.total_amount, 0);
     const transactionCount = expenses.length;
     const averageTransaction = transactionCount > 0 ? totalSpent / transactionCount : 0;
 
@@ -43,11 +49,22 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
 
     return {
       totalSpent,
+      // Filtered expenses by date range
+      const filteredExpenses = useMemo(() => {
+        let filtered = expenses;
+        if (dateRange.from) {
+          filtered = filtered.filter((e) => new Date(e.date) >= dateRange.from!);
+        }
+        if (dateRange.to) {
+          filtered = filtered.filter((e) => new Date(e.date) <= dateRange.to!);
+        }
+        return filtered;
+      }, [expenses, dateRange]);
       transactionCount,
       averageTransaction,
       categoriesUsed: categories.size
     };
-  }, [expenses]);
+  }, [expenses, dateRange]);
 
   // Category breakdown for pie chart
   const categoryData = useMemo(() => {
@@ -57,7 +74,7 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
       if (!categoryTotals[exp.category]) {
         categoryTotals[exp.category] = 0;
       }
-      categoryTotals[exp.category] += exp.amount;
+      categoryTotals[exp.category] += exp.total_amount;
     });
 
     return Object.entries(categoryTotals)
@@ -86,7 +103,7 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
       const expDate = new Date(exp.date);
       const monthKey = expDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       if (monthlyData.hasOwnProperty(monthKey)) {
-        monthlyData[monthKey] += exp.amount;
+        monthlyData[monthKey] += exp.total_amount;
       }
     });
 
@@ -103,10 +120,10 @@ export function ReportsScreen({ onBack }: ReportsScreenProps) {
     expenses.forEach(exp => {
       exp.payment_lines.forEach(line => {
         // Determine payment method from account_id
-        const method = line.account_id === "cash" ? "cash" 
-                     : line.account_id === "upi" ? "upi"
-                     : line.account_id.includes("card") ? "card"
-                     : "bank";
+        const method = line.account_id === "cash" ? "cash"
+          : line.account_id === "upi" ? "upi"
+            : line.account_id?.includes("card") ? "card"
+              : "bank";
 
         if (!methodTotals[method]) {
           methodTotals[method] = 0;

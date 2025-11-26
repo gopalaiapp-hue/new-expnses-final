@@ -15,7 +15,7 @@ import {
 } from "../types";
 
 const DB_NAME = "KharchaPalDB";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 class Database {
   private db: IDBDatabase | null = null;

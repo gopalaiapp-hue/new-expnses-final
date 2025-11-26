@@ -2,7 +2,7 @@
 
 export type UserRole = "admin" | "member";
 export type PaymentMethod = "cash" | "upi" | "card" | "bank" | "wallet" | "borrowed";
-export type DebtStatus = "open" | "settled";
+export type DebtStatus = "pending" | "won" | "lost";
 export type SyncStatus = "pending" | "in_progress" | "synced" | "failed";
 export type BudgetPeriod = "monthly" | "weekly";
 export type TransactionType = "expense" | "income";
@@ -48,7 +48,8 @@ export interface PaymentLine {
   payer_user_id: string;
   account_id?: string; // Optional reference to which account was used
   meta?: {
-    borrowed_from?: string; // user_id of lender
+    borrowed_from?: string; // User ID if borrowed from family member
+    borrowed_from_name?: string; // Custom name if borrowed from someone else
     note?: string;
   };
 }
@@ -101,6 +102,17 @@ export interface DebtRecord {
   settled_at?: string;
   settlement_message?: string;
   settlement_method?: PaymentMethod;
+}
+
+export interface Review {
+  id: string;
+  family_id: string;
+  debt_id: string;
+  reviewer_user_id: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment?: string;
+  status_snapshot: "won";
+  created_at: string;
 }
 
 export interface Budget {
@@ -223,6 +235,8 @@ export interface RecurringTransaction {
   account_id?: string;
   created_by: string;
   created_at: string;
+  auto_deduct?: boolean;
+  notify?: boolean;
 }
 
 // Category configuration

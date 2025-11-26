@@ -22,6 +22,8 @@ import { useLanguage } from "../lib/language";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import logo from "../logo/kharchapal.png";
+import { DebtList } from "./debt/DebtList";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 
 // Type declaration for logo import
 declare module "*.png";
@@ -38,6 +40,7 @@ export function MainDashboard() {
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [showDebtDialog, setShowDebtDialog] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     searchQuery: "",
     timeRange: "all",
@@ -163,7 +166,7 @@ export function MainDashboard() {
             </div>
 
             <BudgetSummaryWidget />
-            <DebtSummaryWidget />
+            <DebtSummaryWidget onClick={() => setShowDebtDialog(true)} />
 
             <DashboardStats />
 
@@ -305,6 +308,21 @@ export function MainDashboard() {
         onClose={() => setShowFilter(false)}
         onApplyFilters={handleApplyFilters}
       />
+
+      {/* Debt Dialog */}
+      <Dialog open={showDebtDialog} onOpenChange={setShowDebtDialog}>
+        <DialogContent className="h-[80vh] flex flex-col p-0 gap-0 max-w-md mx-auto">
+          <div className="p-4 border-b">
+            <DialogHeader>
+              <DialogTitle>Debts & IOUs</DialogTitle>
+              <DialogDescription>Manage your debts and loans</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <DebtList />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

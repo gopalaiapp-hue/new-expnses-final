@@ -4,7 +4,11 @@ import { useApp } from "../../lib/store";
 import { useLanguage } from "../../lib/language";
 import { ArrowUpRight, ArrowDownLeft, HandCoins } from "lucide-react";
 
-export function DebtSummaryWidget() {
+interface DebtSummaryWidgetProps {
+    onClick?: () => void;
+}
+
+export function DebtSummaryWidget({ onClick }: DebtSummaryWidgetProps) {
     const { debts, currentUser } = useApp();
     const { t } = useLanguage();
 
@@ -31,7 +35,10 @@ export function DebtSummaryWidget() {
     if (!debtStats) return null;
 
     return (
-        <div className="grid grid-cols-2 gap-3">
+        <div
+            className="grid grid-cols-2 gap-3 cursor-pointer transition-opacity hover:opacity-90"
+            onClick={onClick}
+        >
             {/* You Owe */}
             {debtStats.youOwe > 0 && (
                 <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
