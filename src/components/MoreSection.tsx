@@ -73,59 +73,9 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
   };
 
   const handleExportData = () => {
-    const exportData = {
-      expenses: expenses,
-      incomes: income,
-      debts: debts,
-      goals: goals,
-      goalTransfers: goalTransfers,
-      accounts: accounts,
-      budgets: budgets,
-      users: users,
-      family: currentFamily,
-      exportDate: new Date().toISOString(),
-    };
-
-    // JSON Export
-    const jsonData = JSON.stringify(exportData, null, 2);
-    const jsonBlob = new Blob([jsonData], { type: 'application/json' });
-    const jsonUrl = URL.createObjectURL(jsonBlob);
-    const jsonLink = document.createElement('a');
-    jsonLink.href = jsonUrl;
-    jsonLink.download = `kharchapal-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(jsonLink);
-    jsonLink.click();
-    document.body.removeChild(jsonLink);
-
-    // CSV Export for Expenses
-    const csvHeaders = ['Date', 'Category', 'Amount', 'Notes', 'Merchant', 'Payment_Method', 'Created_By'];
-    const csvRows = expenses.map(expense => [
-      expense.date,
-      expense.category,
-      expense.total_amount,
-      expense.notes || '',
-      '', // We'll extract merchant from notes later
-      expense.payment_lines?.[0]?.method || 'cash',
-      users.find(u => u.id === expense.created_by)?.name || 'Unknown'
-    ]);
-
-    const csvContent = [csvHeaders, ...csvRows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const csvBlob = new Blob([csvContent], { type: 'text/csv' });
-    const csvUrl = URL.createObjectURL(csvBlob);
-    const csvLink = document.createElement('a');
-    csvLink.href = csvUrl;
-    csvLink.download = `kharchapal-expenses-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(csvLink);
-    csvLink.click();
-    document.body.removeChild(csvLink);
-
-    URL.revokeObjectURL(jsonUrl);
-    URL.revokeObjectURL(csvUrl);
-
-    toast.success("Data exported successfully as JSON and CSV files!");
+    toast.info("🚀 Coming Soon!", {
+      description: "Data export feature is being enhanced and will be available soon!"
+    });
   };
 
   const handleClearData = () => {
@@ -540,7 +490,7 @@ export function MoreSection({ onViewChange, onShowReports }: MoreSectionProps) {
                 onClick={() => {
                   const subject = encodeURIComponent('Feedback: KharchaPal App');
                   const body = encodeURIComponent(`Hi Nitesh,\n\nI wanted to share some feedback about KharchaPal:\n\n[Please share your suggestions, feedback, or any issues you encountered]\n\n- App version: 1.0.0\n- Family: ${currentFamily?.name || 'Not set'}\n\nThank you!`);
-                  window.open(`mailto:niteshjha1333@gmail.com subject=${subject}&body=${body}`);
+                  window.open(`mailto:niteshjha.uiux@yahoo.com subject=${subject}&body=${body}`);
                 }}
                 className="flex-1"
               >

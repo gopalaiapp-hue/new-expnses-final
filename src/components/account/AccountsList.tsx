@@ -48,15 +48,36 @@ export function AccountsList() {
         </Button>
       </div>
 
-      {/* Account Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {accounts.map((account) => (
-          <AccountCard
-            key={account.id}
-            account={account}
-            compact
-          />
-        ))}
+      {/* Account Cards Grouped by Type */}
+      <div className="space-y-6">
+        {["cash", "bank", "card", "wallet"].map((type) => {
+          const typeAccounts = accounts.filter(a => a.type === type);
+          if (typeAccounts.length === 0) return null;
+
+          const typeLabel = {
+            cash: "Cash",
+            bank: "Bank Accounts",
+            card: "Cards",
+            wallet: "Wallets & UPI"
+          }[type as string];
+
+          return (
+            <div key={type} className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                {typeLabel}
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                {typeAccounts.map((account) => (
+                  <AccountCard
+                    key={account.id}
+                    account={account}
+                    compact
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <AddAccountDialog open={showAddAccount} onClose={() => setShowAddAccount(false)} />

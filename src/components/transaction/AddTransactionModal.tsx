@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { Dialog, DialogContent } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -9,14 +10,16 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { CalendarIcon, Upload, X, Plus, ArrowLeft, HandCoins, TrendingDown, TrendingUp, Camera } from "lucide-react";
+import { CalendarIcon, Upload, X, Plus, ArrowLeft, HandCoins, TrendingDown, TrendingUp } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense, Income, PaymentLine, DebtRecord, TransactionType } from "../../types";
-import { generateId, formatDate, validatePaymentLines, formatCurrency, cn } from "../../lib/utils";
+import { generateId, formatDate, validatePaymentLines, formatCurrency } from "../../lib/utils";
 import { toast } from "sonner";
 import { PaymentLineRow } from "./PaymentLineRow";
 import { VisualCategorySelect } from "./VisualCategorySelect";
 import { ReceiptUploader } from "./ReceiptUploader";
+import { useVoiceInput } from "../../hooks/useVoiceInput";
+import { Mic } from "lucide-react";
 
 interface AddTransactionModalProps {
   open: boolean;
@@ -36,6 +39,8 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
   const [paidBy, setPaidBy] = useState<string>(currentUser?.id || "");
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [borrowedFrom, setBorrowedFrom] = useState<string>("");
+  const [customLenderName, setCustomLenderName] = useState("");
+  const [customLenderPhone, setCustomLenderPhone] = useState("");
   const [paymentLines, setPaymentLines] = useState<Partial<PaymentLine>[]>([
     {
       id: generateId(),
@@ -55,6 +60,19 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
       setPaidBy(currentUser.id);
     }
   }, [currentUser, paidBy]);
+
+  // Voice Input Logic
+  const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported: isVoiceSupported } = useVoiceInput();
+
+  useEffect(() => {
+    if (transcript) {
+      setNotes((prev) => {
+        const trimmed = prev.trim();
+        return trimmed ? `${trimmed} ${transcript}` : transcript;
+      });
+      resetTranscript();
+    }
+  }, [transcript, resetTranscript]);
 
   const handleAddPaymentLine = () => {
     setPaymentLines([
@@ -100,9 +118,40 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
       return;
     }
 
+    if (!date || isNaN(date.getTime())) {
+      toast.error("Please select a valid date");
+      return;
+    }
+
     if (!category) {
       toast.error(`Please select a ${isExpense ? "category" : "source"}`);
       return;
+    }
+
+    // Budget Warning Logic
+    if (isExpense && category && amount > 0) {
+      const budget = budgets.find(b => b.category === category);
+      if (budget) {
+        // Calculate current spend for this month/period
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const currentSpent = expenses
+          .filter(e => e.category === category && new Date(e.date) >= startOfMonth)
+          .reduce((sum, e) => sum + e.total_amount, 0);
+
+        const newTotal = currentSpent + amount;
+        const percentage = (newTotal / budget.limit_amount) * 100;
+
+        if (percentage >= 80 && percentage < 100) {
+          toast.warning(`Warning: You've used ${percentage.toFixed(0)}% of your ${category} budget!`, {
+            duration: 4000,
+          });
+        } else if (percentage >= 100) {
+          toast.error(`Alert: You've exceeded your ${category} budget!`, {
+            duration: 4000,
+          });
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -117,7 +166,11 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
               method: paymentMethod as any,
               amount: amount,
               payer_user_id: paidBy,
-              meta: borrowedFrom ? { borrowed_from: borrowedFrom } : undefined,
+              meta: borrowedFrom ? {
+                borrowed_from: borrowedFrom,
+                lender_name: borrowedFrom === "custom" ? customLenderName : undefined,
+                lender_phone: borrowedFrom === "custom" ? customLenderPhone : undefined
+              } as any : undefined,
             },
           ];
 
@@ -126,31 +179,6 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         if (!validation.valid) {
           toast.error(validation.error);
           return;
-        }
-
-        // Check Budget
-        if (isExpense && category) {
-          const budget = budgets.find(b => b.category === category && b.period === "monthly"); // Assuming monthly for now
-          if (budget) {
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-
-            const categoryExpenses = expenses.filter(e =>
-              e.category === category &&
-              new Date(e.date).getMonth() === currentMonth &&
-              new Date(e.date).getFullYear() === currentYear
-            );
-
-            const totalSpent = categoryExpenses.reduce((sum, e) => sum + e.total_amount, 0);
-            const newTotal = totalSpent + amount;
-            const percentage = (newTotal / budget.amount) * 100;
-
-            if (percentage > 100) {
-              toast.error(`Budget Exceeded! You've spent ${percentage.toFixed(0)}% of your ${category} budget.`);
-            } else if (percentage >= 80) {
-              toast.warning(`Warning: You've used ${percentage.toFixed(0)}% of your ${category} budget.`);
-            }
-          }
         }
 
         const expense: Expense = {
@@ -175,10 +203,11 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         // Create debt records for borrowed payments
         for (const line of finalPaymentLines) {
           if (line.meta?.borrowed_from) {
+            const isCustom = line.meta.borrowed_from === "custom";
             const debt: DebtRecord = {
               id: generateId(),
               family_id: currentFamily.id,
-              lender_user_id: line.meta.borrowed_from,
+              lender_user_id: isCustom ? "external" : line.meta.borrowed_from,
               borrower_user_id: line.payer_user_id,
               amount: line.amount,
               currency: currentFamily.currency,
@@ -203,6 +232,8 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
           source: category,
           date: date.toISOString(),
           notes: notes.trim() || undefined,
+          attachments: receipts,
+          receipt_urls: receipts,
           is_shared: isShared,
           sync_status: "pending",
           created_at: new Date().toISOString(),
@@ -212,10 +243,13 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
         toast.success(`Income of ${formatCurrency(amount)} added ✓`);
       }
 
-      handleClose();
+      // Haptic feedback on success
+      await Haptics.impact({ style: ImpactStyle.Medium });
+
     } catch (error) {
-      console.error("Failed to add transaction:", error);
-      toast.error(`Failed to add ${isExpense ? "expense" : "income"}`);
+      console.error("Failed to save transaction:", error);
+      toast.error("Failed to save transaction");
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmitting(false);
     }
@@ -244,8 +278,8 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
   };
 
   return (
-    <Sheet open={open} onOpenChange={(open) => !open && handleClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-lg p-0 overflow-y-auto max-h-[90vh]">
         {/* Header with Back Button - Color coded */}
         <div className={`sticky top-0 z-10 border-b px-4 py-3 transition-colors ${isExpense
           ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
@@ -347,6 +381,95 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </Popover>
           </div>
 
+          {/* Borrowed From - Available for both Simple and Split payments */}
+          {isExpense && (
+            <div className="space-y-3 pt-3 border-t">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="borrowedToggle" className="flex items-center gap-2 cursor-pointer">
+                  <HandCoins className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm">Borrowed from someone?</span>
+                </Label>
+                <Switch
+                  id="borrowedToggle"
+                  checked={!!borrowedFrom}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      const firstOtherUser = users.find((u) => u.id !== currentUser?.id);
+                      setBorrowedFrom(firstOtherUser?.id || "custom");
+                    } else {
+                      setBorrowedFrom("");
+                      setCustomLenderName("");
+                    }
+                  }}
+                />
+              </div>
+
+              {borrowedFrom && (
+                <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
+                    <HandCoins className="h-4 w-4" />
+                    <span className="font-medium">This money was borrowed</span>
+                  </div>
+                  <Select value={borrowedFrom} onValueChange={setBorrowedFrom}>
+                    <SelectTrigger className="bg-background border-orange-300 dark:border-orange-800">
+                      <SelectValue>
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">from</span>
+                          <span className="font-medium text-orange-600 dark:text-orange-400">
+                            {borrowedFrom === "custom"
+                              ? (customLenderName || "Someone else")
+                              : (users.find((u) => u.id === borrowedFrom)?.name || "someone")}
+                          </span>
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users
+                        .filter((u) => u.id !== currentUser?.id)
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="text-muted-foreground">from</span>
+                              <span className="font-medium">{user.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      <SelectItem value="custom">
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">from</span>
+                          <span className="font-medium">Someone else (Custom)</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {borrowedFrom === "custom" && (
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Enter lender's name"
+                        value={customLenderName}
+                        onChange={(e) => setCustomLenderName(e.target.value)}
+                        className="bg-background border-orange-300 dark:border-orange-800"
+                      />
+                      <Input
+                        placeholder="Lender's Phone (Optional)"
+                        value={customLenderPhone}
+                        onChange={(e) => setCustomLenderPhone(e.target.value)}
+                        type="tel"
+                        className="bg-background border-orange-300 dark:border-orange-800"
+                      />
+                      <p className="text-xs text-muted-foreground">Add phone number to send WhatsApp reminders</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-orange-700 dark:text-orange-400">
+                    An IOU will be created for ₹{totalAmount || "0.00"} when you save this transaction
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Simple Payment - Only for Expenses when Split is OFF */}
           {isExpense && !useSplitPayment && (
             <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
@@ -382,64 +505,6 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                     <SelectItem value="wallet">👛 Wallet</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Borrowed From */}
-              <div className="space-y-3 pt-3 border-t">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="borrowedToggle" className="flex items-center gap-2 cursor-pointer">
-                    <HandCoins className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm">Borrowed from someone?</span>
-                  </Label>
-                  <Switch
-                    id="borrowedToggle"
-                    checked={!!borrowedFrom}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        const firstOtherUser = users.find((u) => u.id !== currentUser?.id);
-                        setBorrowedFrom(firstOtherUser?.id || "");
-                      } else {
-                        setBorrowedFrom("");
-                      }
-                    }}
-                  />
-                </div>
-
-                {borrowedFrom && (
-                  <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/50 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
-                      <HandCoins className="h-4 w-4" />
-                      <span className="font-medium">This money was borrowed</span>
-                    </div>
-                    <Select value={borrowedFrom} onValueChange={setBorrowedFrom}>
-                      <SelectTrigger className="bg-background border-orange-300 dark:border-orange-800">
-                        <SelectValue>
-                          <span className="flex items-center gap-2">
-                            <span className="text-muted-foreground">from</span>
-                            <span className="font-medium text-orange-600 dark:text-orange-400">
-                              {users.find((u) => u.id === borrowedFrom)?.name || "someone"}
-                            </span>
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users
-                          .filter((u) => u.id !== currentUser?.id)
-                          .map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              <span className="flex items-center gap-2">
-                                <span className="text-muted-foreground">from</span>
-                                <span className="font-medium">{user.name}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-orange-700 dark:text-orange-400">
-                      An IOU will be created for ₹{totalAmount || "0.00"} when you save this transaction
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -500,15 +565,21 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
                           {formatCurrency(parseFloat(totalAmount) || 0)}
                         </span>
                       </div>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-muted-foreground">Allocated:</span>
-                        <span className={cn(
-                          "font-medium",
-                          Math.abs(parseFloat(totalAmount) - paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)) < 0.01
-                            ? "text-green-600"
-                            : "text-destructive"
-                        )}>
-                          {formatCurrency(paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0))}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Split sum:</span>
+                        <span
+                          className={
+                            Math.abs(
+                              (parseFloat(totalAmount) || 0) -
+                              paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
+                            ) < 0.01
+                              ? "font-medium text-green-600"
+                              : "font-medium text-destructive"
+                          }
+                        >
+                          {formatCurrency(
+                            paymentLines.reduce((sum, line) => sum + (line.amount || 0), 0)
+                          )}
                         </span>
                       </div>
                     </div>
@@ -518,53 +589,51 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </>
           )}
 
-          {/* Receipt Upload */}
-          <div className="space-y-3">
-            <Label>Receipts</Label>
-            <div className="flex flex-wrap gap-3">
-              {receipts.map((receipt, index) => (
-                <div key={index} className="relative h-20 w-20 rounded-lg overflow-hidden border border-outline">
-                  <img src={receipt} alt="Receipt" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setReceipts(receipts.filter((_, i) => i !== index))}
-                    className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                className="h-20 w-20 border-dashed border-2 flex flex-col gap-1 items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                onClick={() => document.getElementById('receipt-upload')?.click()}
-              >
-                <Camera className="h-6 w-6" />
-                <span className="text-xs">Add</span>
-              </Button>
-              <input
-                id="receipt-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      setReceipts([...receipts, reader.result as string]);
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                }}
-              />
+          {/* Receipt Uploader */}
+          <div className="space-y-2">
+            <Label>Attach Receipt (optional)</Label>
+            <div className="flex items-center gap-4">
+              <ReceiptUploader receipts={receipts} onChange={setReceipts} />
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setReceipts([...receipts, reader.result as string]);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon">
+                  <Upload className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              {isVoiceSupported && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={`h-6 px-2 text-xs gap-1 ${isListening ? "text-red-600 animate-pulse" : "text-muted-foreground"}`}
+                  onClick={isListening ? stopListening : startListening}
+                >
+                  <Mic className="h-3 w-3" />
+                  {isListening ? "Listening..." : "Dictate"}
+                </Button>
+              )}
+            </div>
             <Textarea
               id="notes"
               placeholder="Add any additional details..."
@@ -607,7 +676,7 @@ export function AddTransactionModal({ open, onClose, defaultType = "expense" }: 
             </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

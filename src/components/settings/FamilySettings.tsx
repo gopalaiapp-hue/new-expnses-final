@@ -3,10 +3,42 @@ import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { useApp } from "../../lib/store";
 import { getInitials } from "../../lib/utils";
-import { Crown, User } from "lucide-react";
+import { Crown, User as UserIcon, Pencil } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { User } from "../../types";
+import { toast } from "sonner";
 
 export function FamilySettings() {
-  const { currentUser, currentFamily, users } = useApp();
+  const { currentUser, currentFamily, users, updateUser } = useApp();
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+
+  const handleEditClick = (user: User) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditPhone(user.phone || "");
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      const updatedUser: User = {
+        ...editingUser,
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+      };
+      await updateUser(updatedUser);
+      toast.success("Profile updated successfully");
+      setEditingUser(null);
+    } catch (error) {
+      toast.error("Failed to update profile");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -54,9 +86,8 @@ export function FamilySettings() {
             {users.map((user) => (
               <div
                 key={user.id}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
-                  user.id === currentUser?.id ? "bg-accent/50 border-primary/20" : ""
-                }`}
+                className={`flex items-center justify-between p-3 rounded-lg border ${user.id === currentUser?.id ? "bg-accent/50 border-primary/20" : ""
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <Avatar>
@@ -70,6 +101,16 @@ export function FamilySettings() {
                           <span className="text-muted-foreground ml-1">(You)</span>
                         )}
                       </p>
+                      {(user.id === currentUser?.id || currentUser?.role === "admin") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 ml-2 text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditClick(user)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                     {user.phone && (
                       <p className="text-sm text-muted-foreground">{user.phone}</p>
@@ -87,7 +128,7 @@ export function FamilySettings() {
                     </>
                   ) : (
                     <>
-                      <User className="h-3 w-3" />
+                      <UserIcon className="h-3 w-3" />
                       Member
                     </>
                   )}
@@ -119,6 +160,39 @@ export function FamilySettings() {
           </p>
         </CardContent>
       </Card>
+      {/* Edit Profile Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Update your contact information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Your Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Phone Number</label>
+              <Input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                type="tel"
+              />
+              <p className="text-xs text-muted-foreground">Used for Nudge reminders</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
+              <Button onClick={handleUpdateUser} disabled={!editName.trim()}>Save Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

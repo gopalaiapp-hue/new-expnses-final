@@ -16,14 +16,21 @@ export function generateInviteCode(): string {
 }
 
 export function formatCurrency(amount: number, currency: string = "INR"): string {
-  if (currency === "INR") {
-    return `₹${amount.toFixed(2)}`;
-  }
-  return `${currency} ${amount.toFixed(2)}`;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function formatDate(date: string | Date): string {
   const d = typeof date === "string" ? new Date(date) : date;
+
+  // Check if date is valid
+  if (isNaN(d.getTime())) {
+    return "Unknown Date";
+  }
+
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);

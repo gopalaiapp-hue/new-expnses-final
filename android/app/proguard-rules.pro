@@ -29,3 +29,19 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor Rules
+-keep public class com.getcapacitor.** { *; }
+-keep public class com.getcapacitor.community.** { *; }
+-keep public class com.capacitorjs.** { *; }
+-keep class **.R$* { *; }
+-keep public class * extends com.getcapacitor.Plugin
+-keep public class * extends com.getcapacitor.BridgeActivity
+-keep public class * extends android.webkit.WebViewClient
+-keep public class * extends android.webkit.WebChromeClient
+
+# Android Rules
+-keep class androidx.** { *; }
+-keep class android.support.** { *; }
+-keep class **.R$* { *; }
+

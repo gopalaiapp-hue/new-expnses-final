@@ -81,6 +81,8 @@ export interface Income {
   source: string;
   date: string;
   notes?: string;
+  attachments?: string[]; // Array of file URLs or base64 encoded images
+  receipt_urls?: string[]; // Array of uploaded receipt URLs
   is_shared: boolean;
   sync_status: SyncStatus;
   created_at: string;
@@ -241,18 +243,24 @@ export interface RecurringTransaction {
 
 // Category configuration
 export const EXPENSE_CATEGORIES = [
-  "Groceries",
-  "Utilities",
+  "Groceries/Kirana",
+  "Vegetables/Fruits",
+  "Milk/Dairy",
+  "Maid/Helper",
   "Rent",
-  "Transportation",
-  "Healthcare",
-  "Education",
-  "Entertainment",
+  "Utilities",
+  "Transportation/Auto",
+  "Fuel/Petrol",
+  "Chai/Snacks",
   "Food & Dining",
+  "Healthcare/Meds",
+  "Education/Tuition",
+  "Entertainment",
   "Shopping",
-  "Household Items",
+  "Puja/Festivals",
   "Personal Care",
-  "Gifts",
+  "Gifts/Shagun",
+  "Recharge/Mobile",
   "Other",
 ] as const;
 

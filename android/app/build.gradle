@@ -25,6 +25,7 @@ android {
     signingConfigs {
         release {
             def keystorePropertiesFile = rootProject.file("keystore.properties")
+<<<<<<< HEAD
             if (keystorePropertiesFile.exists()) {
                 def props = new Properties()
                 props.load(new FileInputStream(keystorePropertiesFile))
@@ -33,6 +34,16 @@ android {
                 keyAlias = props['keyAlias']
                 keyPassword = props['keyPassword']
             }
+=======
+            def keystoreProperties = new Properties()
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+            }
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+>>>>>>> origin/main
         }
     }
 
@@ -40,7 +51,11 @@ android {
         release {
             signingConfig signingConfigs.release
             minifyEnabled true
+<<<<<<< HEAD
             shrinkResources false
+=======
+            shrinkResources true
+>>>>>>> origin/main
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

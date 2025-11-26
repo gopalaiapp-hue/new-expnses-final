@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -19,6 +20,8 @@ interface AddGoalTransferDialogProps {
 }
 
 export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDialogProps) {
+  if (!goal) return null;
+
   const { currentUser, currentFamily, accounts, addGoalTransfer, updateGoal, addExpense } = useApp();
   const [amount, setAmount] = useState("");
   const [fromAccountId, setFromAccountId] = useState<string>("");
@@ -49,18 +52,13 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       return;
     }
 
-    if (paymentMethod !== "cash" && !fromAccountId) {
-      toast.error("Please select a source account");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       // Create the transfer record
       const transfer: GoalTransfer = {
         id: generateId(),
         goal_id: goal.id,
-        from_account_id: paymentMethod === "cash" ? undefined : fromAccountId,
+        from_account_id: paymentMethod === "bank" ? fromAccountId : undefined,
         amount: transferAmount,
         transfer_type: "manual",
         transfer_method: paymentMethod,
@@ -73,47 +71,72 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
 
       await addGoalTransfer(transfer);
 
-      // Create a corresponding expense record
-      const paymentLine: PaymentLine = {
-        id: generateId(),
-        method: paymentMethod,
-        amount: transferAmount,
-        payer_user_id: currentUser.id,
-        account_id: paymentMethod === "cash" ? undefined : fromAccountId,
-      };
+      // If Bank Transfer, we need to deduct from the bank account
+      // We do this by creating an expense linked to that account
+      if (paymentMethod === "bank" && fromAccountId) {
+        const paymentLine: PaymentLine = {
+          id: generateId(),
+          method: "bank",
+          amount: transferAmount,
+          payer_user_id: currentUser.id,
+          account_id: fromAccountId,
+        };
 
-      const newExpense: Expense = {
-        id: generateId(),
-        family_id: currentUser.family_id,
-        created_by: currentUser.id,
-        total_amount: transferAmount,
-        currency: "INR",
-        category: "savings",
-        date: formatDate(new Date()),
-        notes: `Contribution to goal: ${goal.goal_name}`,
-        payment_lines: [paymentLine],
-        attachments: [],
-        is_shared: true,
-        sync_status: "synced",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+        const newExpense: Expense = {
+          id: generateId(),
+          family_id: currentUser.family_id,
+          created_by: currentUser.id,
+          total_amount: transferAmount,
+          currency: "INR",
+          category: "savings",
+          date: formatDate(new Date()),
+          notes: `Transfer to goal: ${goal.goal_name}`,
+          payment_lines: [paymentLine],
+          attachments: [],
+          is_shared: true,
+          sync_status: "synced",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-      await addExpense(newExpense);
+        await addExpense(newExpense);
+      }
+      else if (paymentMethod === "cash") {
+        const paymentLine: PaymentLine = {
+          id: generateId(),
+          method: "cash",
+          amount: transferAmount,
+          payer_user_id: currentUser.id,
+        };
 
+        const newExpense: Expense = {
+          id: generateId(),
+          family_id: currentUser.family_id,
+          created_by: currentUser.id,
+          total_amount: transferAmount,
+          currency: "INR",
+          category: "savings",
+          date: formatDate(new Date()),
+          notes: `Cash contribution to goal: ${goal.goal_name}`,
+          payment_lines: [paymentLine],
+          attachments: [],
+          is_shared: true,
+          sync_status: "synced",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        await addExpense(newExpense);
+      }
+
+      // Update goal current amount
       // Update goal current amount
       const updatedGoal: Goal = {
         ...goal,
         current_amount: goal.current_amount + transferAmount,
+        sync_status: "pending",
         updated_at: new Date().toISOString(),
       };
-
-      // Check if goal is completed
-      if (updatedGoal.current_amount >= updatedGoal.target_amount) {
-        updatedGoal.is_active = false;
-        updatedGoal.completed_at = new Date().toISOString();
-        toast.success("Goal reached! 🎉");
-      }
 
       await updateGoal(updatedGoal);
 
@@ -122,6 +145,7 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
     } catch (error) {
       console.error("Failed to add transfer:", error);
       toast.error("Failed to add money to goal");
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmitting(false);
     }
@@ -165,18 +189,11 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
       description: "Digital wallet or e-payment",
       color: "from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20",
       borderColor: "border-amber-200 dark:border-amber-800"
-    },
-    borrowed: {
-      icon: "🤝",
-      label: "Borrowed",
-      description: "Borrowed from someone",
-      color: "from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20",
-      borderColor: "border-indigo-200 dark:border-indigo-800"
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen: boolean) => !isOpen && handleClose()}>
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
@@ -271,21 +288,13 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
             )}
           </div>
 
-          {/* From Account / Source */}
-          <div className="space-y-2">
-            <Label htmlFor="fromAccount">Source</Label>
-            {paymentMethod === "cash" ? (
-              <div className="p-3 bg-muted/50 rounded-lg border border-muted flex items-center gap-2">
-                <span className="text-xl">💵</span>
-                <div>
-                  <p className="font-medium">Cash Payment</p>
-                  <p className="text-xs text-muted-foreground">Amount will be added to goal directly</p>
-                </div>
-              </div>
-            ) : (
+          {/* From Account - Only if Bank Transfer */}
+          {paymentMethod === "bank" && (
+            <div className="space-y-2">
+              <Label htmlFor="fromAccount">Which Bank Account? *</Label>
               <Select value={fromAccountId} onValueChange={setFromAccountId}>
                 <SelectTrigger id="fromAccount" className="h-11">
-                  <SelectValue placeholder="Select Bank Account..." />
+                  <SelectValue placeholder="Select bank account..." />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.map((account) => (
@@ -293,15 +302,10 @@ export function AddGoalTransferDialog({ goal, open, onClose }: AddGoalTransferDi
                       {account.name} - {formatCurrency(account.current_balance)}
                     </SelectItem>
                   ))}
-                  {accounts.length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground text-center">
-                      No bank accounts found. Please add one in Settings.
-                    </div>
-                  )}
                 </SelectContent>
               </Select>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-2">

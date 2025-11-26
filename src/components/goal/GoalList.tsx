@@ -64,7 +64,7 @@ export function GoalList() {
     return (
       <Card
         key={goal.id}
-        className="p-4 elevation-1 hover:elevation-3 cursor-pointer transition-all duration-200 bg-card hover:bg-surface-variant/30 border-outline-variant/20"
+        className="p-5 elevation-1 hover:elevation-3 cursor-pointer transition-all duration-200 bg-card hover:bg-surface-variant/30 border-outline-variant/20"
         onClick={() => setSelectedGoal(goal)}
       >
         <div className="space-y-3">

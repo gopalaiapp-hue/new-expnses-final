@@ -14,6 +14,7 @@ import { QuickAddDialog } from "./transaction/QuickAddDialog";
 import { ImportUPIDialog } from "./transaction/ImportUPIDialog";
 import { TransactionFilterDialog, type FilterState } from "./transaction/TransactionFilterDialog";
 import { SmartInsights } from "./dashboard/SmartInsights";
+import { GoalProgressWidget } from "./dashboard/GoalProgressWidget";
 import { ReportsScreen } from "./analytics/ReportsScreen";
 import { MoreSection } from "./MoreSection";
 import { BottomNav } from "./BottomNav";
@@ -25,8 +26,11 @@ import logo from "../logo/kharchapal.png";
 import { DebtList } from "./debt/DebtList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 
-// Type declaration for logo import
-declare module "*.png";
+
+
+import { DebtList } from "./debt/DebtList";
+import { ArrowLeft } from "lucide-react";
+import { QuickActions } from "./dashboard/QuickActions";
 
 export function MainDashboard() {
   const { currentUser, currentFamily } = useApp();
@@ -38,6 +42,7 @@ export function MainDashboard() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showImportUPI, setShowImportUPI] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
+  const [showDebtHistory, setShowDebtHistory] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [showDebtDialog, setShowDebtDialog] = useState(false);
@@ -84,6 +89,25 @@ export function MainDashboard() {
   // If showing reports screen, render it instead
   if (showReportsScreen) {
     return <ReportsScreen onBack={() => setShowReportsScreen(false)} />;
+  }
+
+  // If showing debt history, render it
+  if (showDebtHistory) {
+    return (
+      <div className="min-h-screen bg-background pb-safe">
+        <header className="bg-primary text-primary-foreground elevation-2 sticky top-0 z-10 pt-safe">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setShowDebtHistory(false)} className="text-primary-foreground hover:bg-primary-foreground/10">
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <h1 className="text-xl font-semibold">Debt History</h1>
+          </div>
+        </header>
+        <main className="max-w-4xl mx-auto px-4 py-4">
+          <DebtList />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -141,6 +165,9 @@ export function MainDashboard() {
             {/* Smart Insights */}
             <SmartInsights />
 
+            {/* Goal of the Month */}
+            <GoalProgressWidget />
+
             {/* Quick Add & Import UPI */}
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -166,7 +193,11 @@ export function MainDashboard() {
             </div>
 
             <BudgetSummaryWidget />
+<<<<<<< HEAD
             <DebtSummaryWidget onClick={() => setShowDebtDialog(true)} />
+=======
+            <DebtSummaryWidget onShowHistory={() => setShowDebtHistory(true)} />
+>>>>>>> origin/main
 
             <DashboardStats />
 
@@ -279,18 +310,23 @@ export function MainDashboard() {
       {/* Bottom Navigation */}
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Material Design 3 FAB - Icon Only - Positioned higher above navigation */}
+      {/* Quick Actions FAB */}
       {showFAB && (
-        <div className="fixed right-4 bottom-4 z-40" style={{
-          bottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 84px)' // Increased from 16px to 84px to be above navigation
+        <div className="fixed right-4 z-40" style={{
+          bottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 84px)'
         }}>
-          <Button
-            size="icon"
-            className="rounded-full h-14 w-14 elevation-4 hover:elevation-5 bg-tertiary hover:bg-tertiary/90 text-tertiary-foreground transition-all duration-300 hover:scale-105 active:scale-95"
-            onClick={handleFABClick}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
+          <QuickActions
+            onAddExpense={() => {
+              setTransactionType("expense");
+              setShowAddTransaction(true);
+            }}
+            onAddIncome={() => {
+              setTransactionType("income");
+              setShowAddTransaction(true);
+            }}
+            onAddGoal={() => setShowAddGoal(true)}
+            onSettleDebt={() => setShowDebtHistory(true)}
+          />
         </div>
       )}
 

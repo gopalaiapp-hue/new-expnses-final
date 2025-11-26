@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
@@ -14,12 +14,10 @@ import { Badge } from "../ui/badge";
 import { ScrollArea } from "../ui/scroll-area";
 import { Input } from "../ui/input";
 import * as pdfjsLib from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Set worker source
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// Set worker source correctly for Vite
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 interface ImportUPIDialogProps {
   open: boolean;
@@ -84,25 +82,30 @@ function parsePasteData(text: string): ParsedTransaction[] {
   const transactions: ParsedTransaction[] = [];
 
   for (const line of lines) {
-    // Try to parse: "250 Zomato" or "₹500 Uber"
+    // Try to parse: "250 Zomato" or "₹500 Uber" or "Uber 500"
+    // Also handle "Paid to Zomato ₹250"
+    const cleanLine = line.replace(/paid to/i, '').trim();
+
     const patterns = [
-      /^₹?\s*(\d+(?:\.\d{2})?)\s+(.+)$/i,
-      /^(.+?)\s+₹?\s*(\d+(?:\.\d{2})?)$/i,
+      /^₹?\s*(\d+(?:\.\d{2})?)\s+(.+)$/i, // 500 Uber
+      /^(.+?)\s+₹?\s*(\d+(?:\.\d{2})?)$/i, // Uber 500
     ];
 
     for (const pattern of patterns) {
-      const match = line.match(pattern);
+      const match = cleanLine.match(pattern);
       if (match) {
         const isAmountFirst = pattern.source.startsWith("^₹?");
         const amount = parseFloat(isAmountFirst ? match[1] : match[2]);
         const merchant = (isAmountFirst ? match[2] : match[1]).trim();
 
-        transactions.push({
-          amount,
-          merchant,
-          category: detectCategory(merchant)
-        });
-        break;
+        if (!isNaN(amount)) {
+          transactions.push({
+            amount,
+            merchant,
+            category: detectCategory(merchant)
+          });
+          break;
+        }
       }
     }
   }
@@ -116,25 +119,22 @@ function parseJSONData(text: string): ParsedTransaction[] {
     const transactions: ParsedTransaction[] = [];
 
     // Handle array of transactions
-    if (Array.isArray(data)) {
-      for (const item of data) {
-        if (item.amount && item.merchant) {
+    const items = Array.isArray(data) ? data : [data];
+
+    for (const item of items) {
+      if ((item.amount || item.Amount) && (item.merchant || item.Merchant || item.description || item.Description)) {
+        const amount = parseFloat(item.amount || item.Amount);
+        const merchant = item.merchant || item.Merchant || item.description || item.Description;
+
+        if (!isNaN(amount)) {
           transactions.push({
-            amount: parseFloat(item.amount),
-            merchant: item.merchant,
-            category: item.category || detectCategory(item.merchant),
-            date: item.date
+            amount,
+            merchant,
+            category: item.category || detectCategory(merchant),
+            date: item.date || item.Date
           });
         }
       }
-    } else if (data.amount && data.merchant) {
-      // Single transaction
-      transactions.push({
-        amount: parseFloat(data.amount),
-        merchant: data.merchant,
-        category: data.category || detectCategory(data.merchant),
-        date: data.date
-      });
     }
 
     return transactions;
@@ -148,24 +148,27 @@ function parseCSVData(text: string): ParsedTransaction[] {
   if (lines.length < 2) return [];
 
   const transactions: ParsedTransaction[] = [];
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+  const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
 
-  const amountIndex = headers.findIndex(h => h.includes('amount'));
-  const merchantIndex = headers.findIndex(h => h.includes('merchant') || h.includes('description') || h.includes('name'));
+  const amountIndex = headers.findIndex(h => h.includes('amount') || h.includes('debit') || h.includes('withdrawal'));
+  const merchantIndex = headers.findIndex(h => h.includes('merchant') || h.includes('description') || h.includes('narration') || h.includes('remarks') || h.includes('name'));
   const categoryIndex = headers.findIndex(h => h.includes('category'));
   const dateIndex = headers.findIndex(h => h.includes('date'));
 
   if (amountIndex === -1 || merchantIndex === -1) return [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    // Handle quoted CSV values properly-ish (simple split for now, but better than before)
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+
     if (values.length > Math.max(amountIndex, merchantIndex)) {
-      const amount = parseFloat(values[amountIndex].replace(/[₹,]/g, ''));
+      const amountStr = values[amountIndex].replace(/[₹,]/g, '');
+      const amount = parseFloat(amountStr);
       const merchant = values[merchantIndex];
       const category = categoryIndex !== -1 ? values[categoryIndex] : detectCategory(merchant);
       const date = dateIndex !== -1 ? values[dateIndex] : undefined;
 
-      if (!isNaN(amount) && merchant) {
+      if (!isNaN(amount) && merchant && amount > 0) { // Only import debits (positive amounts usually, but check logic)
         transactions.push({ amount, merchant, category, date });
       }
     }
@@ -505,6 +508,23 @@ export function ImportUPIDialog({ open, onClose }: ImportUPIDialogProps) {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {useMemo(() => {
+                const totals: Record<string, number> = {};
+                parsedTransactions.forEach(t => {
+                  const cat = t.category || "other";
+                  totals[cat] = (totals[cat] || 0) + t.amount;
+                });
+                return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+              }, [parsedTransactions]).map(([cat, amount]) => (
+                <div key={cat} className="bg-muted/30 p-2 rounded-lg flex justify-between items-center text-sm">
+                  <span className="capitalize text-muted-foreground">{cat}</span>
+                  <span className="font-medium">{amount.toFixed(0)}</span>
+                </div>
+              ))}
             </div>
 
             {/* Transaction List */}

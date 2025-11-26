@@ -2,11 +2,11 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
-import { 
-  Calendar, 
-  User, 
-  Wallet, 
-  Receipt, 
+import {
+  Calendar,
+  User,
+  Wallet,
+  Receipt,
   HandCoins,
   CheckCircle2,
   Clock,
@@ -91,20 +91,21 @@ export function TransactionDetailSheet({ expense, open, onClose }: TransactionDe
             <div className="space-y-2">
               {expense.payment_lines.map((line, index) => {
                 const payer = users.find((u) => u.id === line.payer_user_id);
-                const lender = line.meta?.borrowed_from 
-                  ? users.find((u) => u.id === line.meta.borrowed_from)
+                const lender = line.meta?.borrowed_from
+                  ? (line.meta.borrowed_from === "custom"
+                    ? { id: "custom", name: (line.meta as any).lender_name || "Someone else" }
+                    : users.find((u) => u.id === line.meta?.borrowed_from))
                   : null;
                 const relatedDebt = relatedDebts.find(
-                  (d) => d.lender_user_id === line.meta?.borrowed_from && 
-                         d.borrower_user_id === line.payer_user_id
+                  (d) => (d.lender_user_id === line.meta?.borrowed_from || (line.meta?.borrowed_from === "custom" && d.lender_user_id === "external")) &&
+                    d.borrower_user_id === line.payer_user_id
                 );
 
                 return (
-                  <div 
-                    key={line.id} 
-                    className={`p-3 rounded-lg border ${
-                      lender ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50' : 'bg-muted/30'
-                    }`}
+                  <div
+                    key={line.id}
+                    className={`p-3 rounded-lg border ${lender ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50' : 'bg-muted/30'
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -115,7 +116,7 @@ export function TransactionDetailSheet({ expense, open, onClose }: TransactionDe
                         {formatCurrency(line.amount)}
                       </span>
                     </div>
-                    
+
                     <div className="text-sm text-muted-foreground">
                       Paid by {payer?.name || "Unknown"}
                     </div>
@@ -124,9 +125,9 @@ export function TransactionDetailSheet({ expense, open, onClose }: TransactionDe
                       <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-800">
                         <div className="flex items-center gap-2 text-sm text-orange-700 dark:text-orange-400">
                           <HandCoins className="h-3 w-3" />
-                          <span>Borrowed from {lender.name}</span>
+                          <span>Borrowed from {lender?.name}</span>
                           {relatedDebt && (
-                            <Badge 
+                            <Badge
                               variant={relatedDebt.status === "settled" ? "default" : "secondary"}
                               className="ml-auto"
                             >
@@ -208,7 +209,7 @@ export function TransactionDetailSheet({ expense, open, onClose }: TransactionDe
                           {formatCurrency(debt.amount)}
                         </div>
                       </div>
-                      <Badge 
+                      <Badge
                         variant={debt.status === "settled" ? "default" : "secondary"}
                         className="mt-2"
                       >

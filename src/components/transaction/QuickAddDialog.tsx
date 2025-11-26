@@ -7,7 +7,7 @@ import { Zap, TrendingDown, Check } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense, PaymentLine } from "../../types";
 import { generateId, formatDate } from "../../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Badge } from "../ui/badge";
 
 interface QuickAddDialogProps {
@@ -172,8 +172,8 @@ export function QuickAddDialog({ open, onClose }: QuickAddDialogProps) {
 
     try {
       const accountId = parsedData.paymentMethod === "cash" ? "cash" :
-                       parsedData.paymentMethod === "upi" ? "upi" :
-                       parsedData.paymentMethod === "card" ? "card" : "cash";
+        parsedData.paymentMethod === "upi" ? "upi" :
+          parsedData.paymentMethod === "card" ? "card" : "cash";
 
       const paymentLine: PaymentLine = {
         id: generateId(),

@@ -10,8 +10,12 @@ import { Capacitor } from "@capacitor/core";
 import { Device } from "@capacitor/device";
 import { EdgeToEdge } from "@capawesome/capacitor-android-edge-to-edge-support";
 import { LanguageProvider } from "./lib/language";
+<<<<<<< HEAD
 import { useRecurringTransactionProcessor } from "./hooks/useRecurringTransactionProcessor";
 import { useDailyBrief } from "./hooks/useDailyBrief";
+=======
+import { NotificationManager } from "./components/NotificationManager";
+>>>>>>> origin/main
 
 type OnboardingView = "welcome" | "create" | "join";
 
@@ -105,7 +109,12 @@ function AppContent() {
 
   // If user is logged in, show main dashboard
   if (currentUser && currentFamily) {
-    return <MainDashboard />;
+    return (
+      <>
+        <NotificationManager />
+        <MainDashboard />
+      </>
+    );
   }
 
   // Otherwise show onboarding flow

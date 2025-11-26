@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Button } from "../ui/button";
 import { Camera, Upload, X, Image as ImageIcon } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface ReceiptUploaderProps {
   receipts: string[];

@@ -45,7 +45,7 @@ export function AddGoalDialog({ open, onClose }: AddGoalDialogProps) {
   const { currentUser, currentFamily, addGoal, accounts } = useApp();
   const [step, setStep] = useState<"select" | "custom">("select");
   const [selectedTemplate, setSelectedTemplate] = useState<typeof COMMON_GOALS[0] | null>(null);
-  
+
   const [goalName, setGoalName] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("other");
   const [goalIcon, setGoalIcon] = useState("🎯");
@@ -59,8 +59,8 @@ export function AddGoalDialog({ open, onClose }: AddGoalDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate estimated months to reach goal
-  const estimatedMonths = monthlyContribution > 0 
-    ? Math.ceil(targetAmount / monthlyContribution) 
+  const estimatedMonths = monthlyContribution > 0
+    ? Math.ceil(targetAmount / monthlyContribution)
     : 0;
 
   const handleTemplateSelect = (template: typeof COMMON_GOALS[0]) => {
@@ -235,6 +235,28 @@ export function AddGoalDialog({ open, onClose }: AddGoalDialogProps) {
                   onChange={(e) => setGoalName(e.target.value)}
                   className="h-11"
                 />
+              </div>
+
+              {/* Goal Category */}
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={goalType} onValueChange={(v) => setGoalType(v as GoalType)}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vehicle_purchase">🚗 Vehicle</SelectItem>
+                    <SelectItem value="housing">🏠 Housing</SelectItem>
+                    <SelectItem value="travel">✈️ Travel</SelectItem>
+                    <SelectItem value="wedding">💍 Wedding</SelectItem>
+                    <SelectItem value="emergency_fund">🚨 Emergency Fund</SelectItem>
+                    <SelectItem value="education">🎓 Education</SelectItem>
+                    <SelectItem value="electronics">📱 Electronics</SelectItem>
+                    <SelectItem value="festival">🎉 Festival</SelectItem>
+                    <SelectItem value="business">💼 Business</SelectItem>
+                    <SelectItem value="other">🎯 Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Target Amount with Slider */}

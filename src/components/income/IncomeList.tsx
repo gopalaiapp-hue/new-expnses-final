@@ -5,8 +5,7 @@ import { useApp } from "../../lib/store";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { TrendingUp, User } from "lucide-react";
 import { type FilterState } from "../transaction/TransactionFilterDialog";
-import { Income } from "../../types";
-import { IncomeDetailSheet } from "./IncomeDetailSheet";
+import { TransactionDetailSheet } from "../transaction/TransactionDetailSheet";
 
 interface IncomeListProps {
   filters?: FilterState;
@@ -14,7 +13,7 @@ interface IncomeListProps {
 
 export function IncomeList({ filters }: IncomeListProps) {
   const { income, users, currentUser } = useApp();
-  const [selectedIncome, setSelectedIncome] = useState<Income | null>(null);
+  const [selectedIncomeId, setSelectedIncomeId] = useState<string | null>(null);
 
   // Apply filters
   let filteredIncome = income;
@@ -86,7 +85,7 @@ export function IncomeList({ filters }: IncomeListProps) {
           <Card
             key={inc.id}
             className="hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setSelectedIncome(inc)}
+            onClick={() => setSelectedIncomeId(inc.id)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -116,11 +115,31 @@ export function IncomeList({ filters }: IncomeListProps) {
         );
       })}
 
-      {selectedIncome && (
-        <IncomeDetailSheet
-          income={selectedIncome}
-          open={!!selectedIncome}
-          onClose={() => setSelectedIncome(null)}
+      {selectedIncomeId && (
+        <TransactionDetailSheet
+          expense={{
+            id: selectedIncomeId,
+            family_id: currentUser?.family_id || "",
+            created_by: income.find(i => i.id === selectedIncomeId)?.created_by || "",
+            total_amount: income.find(i => i.id === selectedIncomeId)?.amount || 0,
+            currency: income.find(i => i.id === selectedIncomeId)?.currency || "INR",
+            category: income.find(i => i.id === selectedIncomeId)?.source || "",
+            date: income.find(i => i.id === selectedIncomeId)?.date || "",
+            notes: income.find(i => i.id === selectedIncomeId)?.notes,
+            payment_lines: [{
+              id: "1",
+              method: "cash", // Default for display
+              amount: income.find(i => i.id === selectedIncomeId)?.amount || 0,
+              payer_user_id: income.find(i => i.id === selectedIncomeId)?.created_by || "",
+            }],
+            is_shared: income.find(i => i.id === selectedIncomeId)?.is_shared || false,
+            sync_status: "synced",
+            created_at: income.find(i => i.id === selectedIncomeId)?.created_at || "",
+            attachments: income.find(i => i.id === selectedIncomeId)?.attachments || [],
+            receipt_urls: income.find(i => i.id === selectedIncomeId)?.receipt_urls || [],
+          }}
+          open={!!selectedIncomeId}
+          onClose={() => setSelectedIncomeId(null)}
         />
       )}
     </div>

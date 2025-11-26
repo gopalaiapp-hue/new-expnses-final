@@ -4,11 +4,11 @@ import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
-import { 
-  Target, 
-  Calendar, 
-  User, 
-  TrendingUp, 
+import {
+  Target,
+  Calendar,
+  User,
+  TrendingUp,
   Plus,
   CheckCircle2,
   ArrowUpCircle
@@ -25,7 +25,7 @@ interface GoalDetailSheetProps {
 }
 
 export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
-  const { users, goalTransfers, currentUser } = useApp();
+  const { users, goalTransfers, currentUser, accounts } = useApp();
   const [showAddTransfer, setShowAddTransfer] = useState(false);
 
   if (!goal) return null;
@@ -69,7 +69,7 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
       <Sheet open={open} onOpenChange={onClose}>
         <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
           <SheetHeader className="mb-6">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between pr-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-4xl">{goal.goal_icon || "🎯"}</span>
@@ -81,8 +81,8 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
                   </div>
                 </div>
               </div>
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className={`${getPriorityColor(goal.priority)} border-current`}
               >
                 {goal.priority} priority
@@ -100,9 +100,9 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
                 </h3>
                 <span className="text-2xl font-semibold">{progress.toFixed(1)}%</span>
               </div>
-              
+
               <Progress value={progress} className="h-3" />
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-success/10 rounded-lg border border-success/20">
                   <p className="text-xs text-muted-foreground mb-1">Saved</p>
@@ -137,11 +137,10 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
                 {getMilestones().map((milestone) => (
                   <div
                     key={milestone.percentage}
-                    className={`p-3 rounded-lg text-center transition-all ${
-                      milestone.achieved
-                        ? "bg-success/20 border-2 border-success/50"
-                        : "bg-muted/30 border border-muted"
-                    }`}
+                    className={`p-3 rounded-lg text-center transition-all ${milestone.achieved
+                      ? "bg-success/20 border-2 border-success/50"
+                      : "bg-muted/30 border border-muted"
+                      }`}
                   >
                     {milestone.achieved && (
                       <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-success" />
@@ -157,7 +156,7 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
             {/* Details */}
             <div className="space-y-3">
               <h3>Details</h3>
-              
+
               {goal.target_date && (
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -168,8 +167,8 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
                         {daysRemaining > 0
                           ? `${daysRemaining} days remaining`
                           : daysRemaining === 0
-                          ? "Due today!"
-                          : `${Math.abs(daysRemaining)} days overdue`}
+                            ? "Due today!"
+                            : `${Math.abs(daysRemaining)} days overdue`}
                       </p>
                     )}
                   </div>
@@ -231,6 +230,11 @@ export function GoalDetailSheet({ goal, open, onClose }: GoalDetailSheetProps) {
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {formatDate(new Date(transfer.transfer_date))}
+                              {transfer.from_account_id && (
+                                <span className="ml-1">
+                                  • via {accounts.find(a => a.id === transfer.from_account_id)?.name || "Cash/External"}
+                                </span>
+                              )}
                               {transfer.notes && ` • ${transfer.notes}`}
                             </p>
                           </div>

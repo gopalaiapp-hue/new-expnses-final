@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
@@ -8,23 +8,35 @@ import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Textarea } from "../ui/textarea";
-import { Edit2, ArrowLeft, ArrowRight, AlertCircle, TrendingDown, Calendar, Tag, Receipt, RefreshCw, Trash2 } from "lucide-react";
+import { Edit2, ArrowLeft, ArrowRight, AlertCircle, TrendingDown, Calendar, Tag, Receipt, RefreshCw } from "lucide-react";
 import { useApp } from "../../lib/store";
 import { Expense } from "../../types";
 import { formatCurrency, formatDateTime, getCategoryIcon, getPaymentMethodIcon, getPaymentMethodLabel, getInitials } from "../../lib/utils";
 import { toast } from "sonner";
 
+
 interface ExpenseDetailSheetProps {
-  expense: Expense;
+  expenseId: string;
   open: boolean;
   onClose: () => void;
 }
 
-export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailSheetProps) {
-  const { users, debts, currentUser, updateExpense, categories } = useApp();
+export function ExpenseDetailSheet({ expenseId, open, onClose }: ExpenseDetailSheetProps) {
+  const { users, debts, currentUser, updateExpense, expenses } = useApp();
+  const expense = expenses.find(e => e.id === expenseId);
+
   const [isEditing, setIsEditing] = useState(false);
-  const [editAmount, setEditAmount] = useState(expense.total_amount.toString());
-  const [editCategory, setEditCategory] = useState(expense.category);
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+
+  useEffect(() => {
+    if (expense) {
+      setEditAmount(expense.total_amount.toString());
+      setEditCategory(expense.category);
+    }
+  }, [expense]);
+
+  if (!expense) return null;
 
   const creator = users.find((u) => u.id === expense.created_by);
   const canEdit = currentUser?.id === expense.created_by || currentUser?.role === "admin";
@@ -38,19 +50,23 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
   };
 
   const handleSaveEdit = async () => {
-    const newAmount = parseFloat(editAmount);
-    if (isNaN(newAmount) || newAmount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
+    if (!expense || !currentUser) return;
 
     try {
-      await updateExpense(expense.id, {
+      const newAmount = parseFloat(editAmount);
+      if (isNaN(newAmount) || newAmount <= 0) {
+        toast.error("Please enter a valid amount");
+        return;
+      }
+
+      await updateExpense({
+        ...expense,
         total_amount: newAmount,
         category: editCategory,
+        updated_at: new Date().toISOString(),
       });
 
-      toast.success("Expense updated successfully ✓");
+      toast.success("Expense updated successfully");
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update expense:", error);
@@ -188,14 +204,7 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
                 const payer = users.find((u) => u.id === line.payer_user_id);
                 const isBorrowed = !!line.meta?.borrowed_from;
                 const lender = isBorrowed
-                  ? (line.meta.borrowed_from === 'custom'
-                    ? null  // Custom name, not a family member
-                    : users.find((u) => u.id === line.meta?.borrowed_from))
-                  : null;
-                const lenderName = isBorrowed
-                  ? (line.meta.borrowed_from === 'custom'
-                    ? line.meta.borrowed_from_name || 'someone'
-                    : lender?.name || 'someone')
+                  ? users.find((u) => u.id === line.meta?.borrowed_from)
                   : null;
 
                 return (
@@ -220,7 +229,7 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
                     )}
 
                     {/* Borrowed */}
-                    {isBorrowed && lenderName && (
+                    {isBorrowed && lender && (
                       <div className="mt-3 p-3 bg-orange-50/50 dark:bg-orange-950/20 rounded-lg border border-orange-200/50 dark:border-orange-800/50">
                         <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-medium text-sm mb-1">
                           <AlertCircle className="h-4 w-4" />
@@ -230,7 +239,7 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
                           <span className="font-medium">{payer?.name}</span>
                           <ArrowRight className="h-3 w-3 text-muted-foreground" />
                           <span className="text-muted-foreground">borrowed from</span>
-                          <span className="font-medium">{lenderName}</span>
+                          <span className="font-medium">{lender.name}</span>
                         </div>
                       </div>
                     )}
@@ -292,51 +301,6 @@ export function ExpenseDetailSheet({ expense, open, onClose }: ExpenseDetailShee
               </div>
             )}
           </div>
-        </div>
-
-        {/* Attachments Section */}
-        {expense.attachments && expense.attachments.length > 0 && (
-          <div className="p-4 border-b">
-            <h3 className="text-sm font-medium mb-3 flex items-center gap-2 text-muted-foreground">
-              <Receipt className="h-4 w-4" />
-              Receipts & Attachments
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {expense.attachments.map((attachment, index) => (
-                <div key={index} className="relative group rounded-lg overflow-hidden border bg-muted/50 aspect-square">
-                  <img
-                    src={attachment}
-                    alt={`Receipt ${index + 1}`}
-                    className="w-full h-full object-cover transition-transform hover:scale-105 cursor-pointer"
-                    onClick={() => {
-                      // Open full image in new tab or modal
-                      const win = window.open();
-                      win?.document.write(`<img src="${attachment}" style="max-width:100%; height:auto;">`);
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Footer Actions */}
-        <div className="p-4 pb-8">
-          {canEdit && (
-            <Button
-              variant="destructive"
-              className="w-full gap-2"
-              onClick={() => {
-                if (confirm("Are you sure you want to delete this expense?")) {
-                  // Handle delete
-                  toast.error("Delete functionality not implemented in this view yet");
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Expense
-            </Button>
-          )}
         </div>
       </SheetContent>
     </Sheet>

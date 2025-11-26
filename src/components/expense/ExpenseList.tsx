@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { useApp } from "../../lib/store";
-import { formatCurrency, formatDate, getCategoryIcon, getPaymentMethodIcon, getInitials } from "../../lib/utils";
+import { formatCurrency, formatDate, getCategoryIcon, getPaymentMethodIcon, getPaymentMethodLabel, getInitials } from "../../lib/utils";
 import { Expense } from "../../types";
 import { ExpenseDetailSheet } from "./ExpenseDetailSheet";
 import { Avatar, AvatarFallback } from "../ui/avatar";
@@ -14,12 +14,14 @@ interface ExpenseListProps {
 
 export function ExpenseList({ filters }: ExpenseListProps) {
   const { currentUser, expenses, users } = useApp();
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
 
   // Filter expenses based on user role
   let visibleExpenses = currentUser?.role === "admin"
     ? expenses
-    : expenses.filter((e) => e.is_shared || e.created_by === currentUser?.id);
+    : expenses.filter(
+      (e) => e.is_shared || e.created_by === currentUser?.id
+    );
 
   // Apply active filters
   if (filters) {
@@ -40,7 +42,7 @@ export function ExpenseList({ filters }: ExpenseListProps) {
 
       // Payment method filter
       if (filters.mode !== "All Modes") {
-        const hasPaymentMethod = expense.payment_lines.some((line) => line.method === filters.mode);
+        const hasPaymentMethod = expense.payment_lines.some(line => line.method === filters.mode);
         if (!hasPaymentMethod) return false;
       }
 
@@ -48,6 +50,7 @@ export function ExpenseList({ filters }: ExpenseListProps) {
       if (filters.timeRange !== "all") {
         const today = new Date();
         const expenseDate = new Date(expense.date);
+
         switch (filters.timeRange) {
           case "today":
             if (expenseDate.toDateString() !== today.toDateString()) return false;
@@ -70,8 +73,13 @@ export function ExpenseList({ filters }: ExpenseListProps) {
   }
 
   const groupedExpenses = visibleExpenses.reduce((groups, expense) => {
+    const expenseDate = new Date(expense.date);
+    if (isNaN(expenseDate.getTime())) return groups;
+
     const dateKey = formatDate(expense.date);
-    if (!groups[dateKey]) groups[dateKey] = [];
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
     groups[dateKey].push(expense);
     return groups;
   }, {} as Record<string, Expense[]>);
@@ -80,21 +88,17 @@ export function ExpenseList({ filters }: ExpenseListProps) {
     return (
       <div className="text-center py-16">
         <div className="inline-flex items-center justify-center p-6 rounded-full bg-primary-container/30 mb-4">
-          <div className="text-5xl">
-            {filters?.searchQuery || Object.keys(filters || {}).some((k) => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
-              ? "🔍"
-              : "📝"}
-          </div>
+          <div className="text-5xl">{filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes") ? "🔍" : "📝"}</div>
         </div>
         <p className="text-muted-foreground text-lg mb-2">
-          {filters?.searchQuery || Object.keys(filters || {}).some((k) => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
+          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
             ? "No expenses match your filters"
             : "No expenses yet"}
         </p>
         <p className="text-sm text-muted-foreground">
-          {filters?.searchQuery || Object.keys(filters || {}).some((k) => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
+          {filters?.searchQuery || Object.keys(filters || {}).some(k => filters![k as keyof FilterState] && filters![k as keyof FilterState] !== "all" && filters![k as keyof FilterState] !== "All Categories" && filters![k as keyof FilterState] !== "All Modes")
             ? "Try adjusting your filters"
-            : `Tap the ${"+"} button to add your first expense`}
+            : `Tap the ${<span className="text-tertiary">+</span>} button to add your first expense`}
         </p>
       </div>
     );
@@ -114,11 +118,12 @@ export function ExpenseList({ filters }: ExpenseListProps) {
             <div className="space-y-3">
               {dateExpenses.map((expense) => {
                 const creator = users.find((u) => u.id === expense.created_by);
+
                 return (
                   <Card
                     key={expense.id}
                     className="p-4 elevation-1 hover:elevation-3 cursor-pointer transition-all duration-200 bg-card hover:bg-surface-variant/30 border-outline-variant/20 overflow-hidden"
-                    onClick={() => setSelectedExpense(expense)}
+                    onClick={() => setSelectedExpenseId(expense.id)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -126,6 +131,27 @@ export function ExpenseList({ filters }: ExpenseListProps) {
                           {getCategoryIcon(expense.category)}
                         </div>
                         <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="truncate font-medium">{expense.category}</h4>
+                            {expense.payment_lines.length > 1 && (
+                              <Badge variant="secondary" className="text-xs bg-secondary-container/50 text-on-secondary-container">
+                                Split
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {expense.payment_lines.map((line) => (
+                              <span key={line.id} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-surface-variant/50 text-on-surface-variant">
+                                {getPaymentMethodIcon(line.method)}{" "}
+                                {formatCurrency(line.amount, expense.currency)}
+                              </span>
+                            ))}
+                          </div>
+                          {expense.notes && (
+                            <p className="text-sm text-muted-foreground mt-2 truncate">
+                              {expense.notes}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-2">
                             <Avatar className="h-6 w-6 border border-outline-variant">
                               <AvatarFallback className="text-xs bg-primary-container text-on-primary-container">
@@ -135,24 +161,6 @@ export function ExpenseList({ filters }: ExpenseListProps) {
                             <span className="text-xs text-muted-foreground">
                               {getCreatorName(expense.created_by)}
                             </span>
-                          </div>
-                          {/* Payment lines with custom borrower name */}
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {expense.payment_lines.map((line) => {
-                              const payer = users.find((u) => u.id === line.payer_user_id);
-                              const customName = line.meta?.borrowed_from === "custom" ? line.meta?.borrowed_from_name : null;
-                              return (
-                                <span key={line.id} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-surface-variant/50 text-on-surface-variant">
-                                  {getPaymentMethodIcon(line.method)}{' '}
-                                  {customName ? (
-                                    <span className="font-medium mr-1">{customName}</span>
-                                  ) : (
-                                    payer && <span className="font-medium mr-1">{payer.name.split(' ')[0]}</span>
-                                  )}
-                                  {formatCurrency(line.amount, expense.currency)}
-                                </span>
-                              );
-                            })}
                           </div>
                         </div>
                       </div>
@@ -170,11 +178,11 @@ export function ExpenseList({ filters }: ExpenseListProps) {
         ))}
       </div>
 
-      {selectedExpense && (
+      {selectedExpenseId && (
         <ExpenseDetailSheet
-          expense={selectedExpense}
-          open={!!selectedExpense}
-          onClose={() => setSelectedExpense(null)}
+          expenseId={selectedExpenseId}
+          open={!!selectedExpenseId}
+          onClose={() => setSelectedExpenseId(null)}
         />
       )}
     </>
